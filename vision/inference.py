@@ -5,7 +5,7 @@ from PIL import Image
 # Load the model
 model = YOLO('model.pt') 
 
-image_path = 'eval/images/amz_00778.png'
+image_path = 'sample_images/amz_00778.png'
 image = cv2.imread(image_path)
 
 result = model.predict(image)[0]
