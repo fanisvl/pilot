@@ -3,9 +3,9 @@ import cv2
 from PIL import Image
 
 # Load the model
-model = YOLO('model.pt') 
+model = YOLO('model/yolov8s700.pt') 
 
-image_path = 'sample_images/amz_00778.png'
+image_path = 'model/sample_images/amz_00778.png'
 image = cv2.imread(image_path)
 
 result = model.predict(image)[0]
