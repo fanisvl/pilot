@@ -25,7 +25,4 @@ RUN apt-get update && \
 # Set the working directory
 WORKDIR /workspace
 
-# Clone autopilot
-COPY . /workspace/autopilot
-
 CMD ["bash"]
