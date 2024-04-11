@@ -20,9 +20,12 @@ RUN echo source "/usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> 
 
 # Set up workspace
 RUN apt-get update && \
-    apt-get install -y git
+    apt-get install -y git python3-pip
 
 # Set the working directory
 WORKDIR /workspace
+
+# Install Python dependencies
+RUN pip install -r autopilot/src/vision/vision/requirements.txt
 
 CMD ["bash"]
