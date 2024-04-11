@@ -29,3 +29,10 @@
       pilot \
       bash
   ```
+
+
+Common Erros
+1. Visual Studio Code when trying to write to mounted file:
+  Failed to save Insufficient permissions. Select 'Retry as Sudo' to retry as superuser.
+  Fix:
+  ```sudo chown -R $USER .```
