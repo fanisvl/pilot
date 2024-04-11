@@ -1,3 +1,0 @@
-[console_scripts]
-test_node = vision.test_node:main
-
