@@ -3,7 +3,7 @@
 1. Clone the repo
 
 3. Build image
-  ```docker build -t nvidia_ros .```
+  ```docker build -t pilot .```
 
 4. Run container - This will also mount the repo you cloned to the docker container
 
@@ -14,7 +14,7 @@
     --env="QT_X11_NO_MITSHM=1" \
     --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
     -v .:/workspace/autopilot \
-    nvidia_ros \
+    pilot \
     bash
   ```
 
@@ -26,6 +26,6 @@
       --env="QT_X11_NO_MITSHM=1" \
       --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
       -v .:/workspace/autopilot \
-      nvidia_ros \
+      pilot \
       bash
   ```
