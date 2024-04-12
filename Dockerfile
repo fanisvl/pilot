@@ -43,5 +43,9 @@ RUN apt-get install -y ros-dev-tools
 # Set the working directory in the container
 WORKDIR /workspace
 
+# Install requirements.txt
+COPY requirements.txt /workspace/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
 # Set up entry point or command as needed
 CMD ["/bin/bash"]
