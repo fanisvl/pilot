@@ -30,14 +30,18 @@ RUN apt-get update
 RUN apt-get upgrade -y
 
 # Install ROS 2 desktop packages
-RUN apt-get install -y ros-foxy-desktop python3-argcomplete
+RUN apt-get install -y ros-foxy-desktop python3-argcomplete python3-pip
 
 # Source ROS 2 setup script
 RUN echo "source /opt/ros/foxy/setup.bash" >> ~/.bashrc
 
 # (Optional) Install ROS 2 base packages or development tools if needed
-# RUN apt-get install -y ros-foxy-ros-base python3-argcomplete
 RUN apt-get install -y ros-dev-tools
+
+# (ROS-Base instead of ros-desktop) RUN apt-get install -y ros-foxy-ros-base python3-argcomplete
+
+# Set the working directory in the container
+WORKDIR /workspace
 
 # Set up entry point or command as needed
 CMD ["/bin/bash"]
