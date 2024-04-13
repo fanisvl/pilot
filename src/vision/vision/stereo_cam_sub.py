@@ -36,15 +36,26 @@ class StereoCamSub(Node):
         cv2.waitKey(1)
 
     def inference(self, image):  
+        # TODO: Add an inference class
+
         result = self.model.predict(image)[0]
         boxes = result.boxes  # Boxes object for bbox outputs
+        
+        colors = {
+            "0": (255, 0, 0),
+            "1": (0, 255, 255),
+            "2": (0, 165, 255),
+            "3": (0, 165, 255),
+        }
+
         for box in boxes:
             coordinates = box.xyxy[0]
             x1, y1, x2, y2 = int(coordinates[0]), int(coordinates[1]), int(coordinates[2]), int(coordinates[3])
             conf = box.conf.item()
             class_pred = box.cls.item()
-            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            label = f"{self.model.names[class_pred]}: conf: {conf}"
+            color = colors.get(class_pred, (0, 255, 0))
+            cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+            label = f"{self.model.names[class_pred].replace('_cone', '')} - {conf}"
             cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
         
         return image
