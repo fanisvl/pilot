@@ -4,18 +4,21 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2
 
-class StereoCameraPublisher(Node):
+class StereoCamPub(Node):
 
     def __init__(self):
-        super().__init__("stereo_camera_publisher")
+        super().__init__("stereo_cam_pub")
         self.publisher_ = self.create_publisher(Image, '/camera/image_raw', 10)
-        timer_period = 0.1 # sec
+        timer_period = 10 # sec
         self.timer = self.create_timer(timer_period, self.publish_image)
         self.bridge = CvBridge()
 
         # Initialize video streams for both cameras
         self.video_stream_0 = cv2.VideoCapture('/dev/video0')
         self.video_stream_1 = cv2.VideoCapture('/dev/video1')
+
+        self.get_logger().info("stereo_cam_pub initialized.")
+
 
     def publish_image(self):
         # Read frames from both camera streams
@@ -35,10 +38,10 @@ class StereoCameraPublisher(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    stereo_camera_publisher = StereoCameraPublisher()
+    stereo_cam_pub = StereoCamPub()
     
-    rclpy.spin(stereo_camera_publisher) # Node is kept alive until killed with ctrl+c
-    stereo_camera_publisher.destroy_node()
+    rclpy.spin(stereo_cam_pub) # Node is kept alive until killed with ctrl+c
+    stereo_cam_pub.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
