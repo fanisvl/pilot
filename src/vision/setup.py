@@ -22,7 +22,7 @@ setup(
         'console_scripts': [
             "test_node = vision.test_node:main",
             "stereo_cam_pub = vision.stereo_cam_pub:main",
-            "stereo_cam_sub = vision.stereo_cam_pub:main",
+            "stereo_cam_sub = vision.stereo_cam_sub:main",
         ],
     },
 )
