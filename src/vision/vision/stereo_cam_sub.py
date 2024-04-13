@@ -17,7 +17,7 @@ class StereoCamSub(Node):
         )
 
         self.bridge = CvBridge()
-        self.get_logger().info("stereo_cam_sub initialized.")
+        self.get_logger().info("stereo_cam Subscriber initialized.")
 
     def image_callback(self, msg):
         try:
@@ -30,6 +30,7 @@ class StereoCamSub(Node):
         # Display the image
         cv2.imshow("Camera Image", cv_image)
         cv2.waitKey(1)
+
 
 def main(args=None):
     rclpy.init(args=args)
