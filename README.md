@@ -2,7 +2,7 @@
 
 1. Clone the repo
 
-3. Build image
+3. Download (https://github.com/AUEB-CS-Autonomous-Racing/autopilot/pkgs/container/autopilot%2Fautopilot) or build image
   ```docker build -t pilot .```
 
 4. Run container - This will also mount the repo you cloned to the docker container
