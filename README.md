@@ -7,7 +7,7 @@
 
 4. Run container - This will also mount the repo you cloned to the docker container
 
-Note: These commands should be ran inside /autopilot
+Note: These commands should be ran inside /autopilot  
   (no-gpu)
   ```
   docker run -it --net=host \
