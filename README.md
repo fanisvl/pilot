@@ -1,5 +1,8 @@
 # autopilot
 
+Before starting run this command to make GUIs work inside a docker container:  
+``` xhost +local:docker ```
+
 1. Clone the repo
 
 3. Download (https://github.com/AUEB-CS-Autonomous-Racing/autopilot/pkgs/container/autopilot%2Fautopilot) or build image
