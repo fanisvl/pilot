@@ -1,7 +1,7 @@
 # autopilot
 
-Before starting run this command to make GUIs work inside a docker container:  
-``` xhost +local:docker ```
+Before starting, run this command to make GUIs work inside a docker container:  
+```xhost +local:docker```
 
 1. Clone the repo
 
@@ -11,28 +11,34 @@ Before starting run this command to make GUIs work inside a docker container:
 4. Run container - This will also mount the repo you cloned to the docker container
 
 Note: These commands should be ran inside /autopilot  
-  (no-gpu)
+  No GPU
   ```
   docker run -it --net=host \
     --env="DISPLAY" \
     --env="QT_X11_NO_MITSHM=1" \
     --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+    --device=/dev/video0:/dev/video0 \
     -v .:/workspace/autopilot \
     pilot \
     bash
   ```
 
-(gpu - jetson) -> not tested
+With GPU support - (not tested)
   ```
   docker run -it --net=host --gpus all \
       --env="NVIDIA_DRIVER_CAPABILITIES=all" \
       --env="DISPLAY" \
       --env="QT_X11_NO_MITSHM=1" \
       --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+      --device=/dev/video0:/dev/video0 \
       -v .:/workspace/autopilot \
       pilot \
       bash
   ```
+
+5. Build ROS packages
+   ```colcon build```
+   ```source install/setup.bash```
 
 
 Common Erros
@@ -40,3 +46,4 @@ Common Erros
   Failed to save Insufficient permissions. Select 'Retry as Sudo' to retry as superuser.
   Fix:
   ```sudo chown -R $USER .```
+
