@@ -8,9 +8,8 @@ Before starting, run this command to make GUIs work inside a docker container:
 3. Download (https://github.com/AUEB-CS-Autonomous-Racing/autopilot/pkgs/container/autopilot%2Fautopilot) or build image
   ```docker build -t pilot .```
 
-4. Run container - This will also mount the repo you cloned to the docker container
-
-Note: These commands should be ran inside /autopilot  
+4. Run container  - This will also mount the repo you cloned to the docker container  
+   Execute these commands inside **/autopilot**  
   No GPU
   ```
   docker run -it --net=host \
@@ -36,7 +35,7 @@ With GPU support - (not tested)
       bash
   ```
 
-5. Build ROS packages
+5. Build ROS packages **inside workspace/autopilot**
    ```colcon build```
    ```source install/setup.bash```
    
