@@ -43,43 +43,35 @@ With GPU support - **not tested**
 # Simulator Setup
 Inside the same docker container and /workspace:  
 
-1. Create sim directory
+1. Create sim directory, clone eufs_sim and eufs_msgs
  ```
  mkdir sim && cd sim
+ git clone https://gitlab.com/eufs/eufs_sim.git
+ git clone https://gitlab.com/eufs/eufs_msgs.git
  ```
 
-2. Clone eufs_sim repository to /sim
-```
-git clone https://gitlab.com/eufs/eufs_sim.git
-```
-3. Clone eufs_msgs repository to /sim
-```
-git clone https://gitlab.com/eufs/eufs_msgs.git
-```
-4. Set EUFS_MASTER environment variable to the path of the directory of eufs_sim and eufs_msgs
+2. Set EUFS_MASTER environment variable to the path of the directory of eufs_sim and eufs_msgs
 ```
 echo 'export EUFS_MASTER=/workspace/sim' >> ~/.bashrc
-```
-5. call bash script to update environment variable above
-```
 source ~/.bashrc
 ```
 
-6. Install rosdep
+3. Install dependencies with rosdep
 ```
 sudo apt-get install python3-rosdep
 sudo rosdep init
 rosdep update --rosdistro foxy
 rosdep install --from-paths $EUFS_MASTER --ignore-src -r -y
 ```
-7. inside /workspace/sim build the simulator (may need to run second time if it fails)
+
+4. inside /workspace/sim build the simulator (may need to run second time if it fails)
 ```
 colcon build
+. install/setup.bash
 ```
 
-8. Launch the simulator inside /workspace/sim
+5. Launch the simulator inside /workspace/sim
 ```
-. install/setup.bash
 ros2 launch eufs_launcher eufs_launcher.launch.py
 ```
 
