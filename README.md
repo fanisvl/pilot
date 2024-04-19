@@ -67,11 +67,11 @@ rosdep install --from-paths $EUFS_MASTER --ignore-src -r -y
 4. inside /workspace/sim build the simulator (may need to run second time if it fails)
 ```
 colcon build
-. install/setup.bash
 ```
 
 5. Launch the simulator inside /workspace/sim
 ```
+. install/setup.bash
 ros2 launch eufs_launcher eufs_launcher.launch.py
 ```
 
