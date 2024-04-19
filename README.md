@@ -17,6 +17,7 @@ Before starting, run this command to make GUIs work inside a docker container:
     --env="QT_X11_NO_MITSHM=1" \
     --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
     --device=/dev/video0:/dev/video0 \
+    --device=/dev/dri:/dev/dri \
     -v .:/workspace/autopilot \
     pilot \
     bash
