@@ -8,6 +8,7 @@ import json
 from PIL import Image
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
+from multiprocessing import freeze_support
 
 # Assuming your data is in a directory called 'data_dir' and is organized into 'train' and 'val' directories
 data_dir = 'data'
@@ -31,69 +32,79 @@ class CustomDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
+        print(img_name)
+        print(annotation)
         return image, annotation
 
     def load_annotations(self):
         with open(self.annotations_file, 'r') as f:
             annotations = json.load(f)
         return annotations
+    
+if __name__ == '__main__':
+    freeze_support()
 
-# Define transforms
-data_transforms = {
-    'train': transforms.Compose([
-        transforms.RandomResizedCrop(80),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ]),
-    'val': transforms.Compose([
-        transforms.Resize(80),
-        transforms.CenterCrop(80),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ]),
-}
+        
+    # Define transforms
+    data_transforms = {
+        'train': transforms.Compose([
+            transforms.RandomResizedCrop(80),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ]),
+        'val': transforms.Compose([
+            transforms.Resize(80),
+            transforms.CenterCrop(80),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ]),
+    }
 
-# Load datasets with annotations
-custom_datasets = {x: CustomDataset(data_dir=os.path.join(data_dir, x),
-                                    annotations_file=os.path.join(data_dir, 'ann.json'),
-                                    transform=data_transforms[x]) for x in ['train', 'val']}
+    # Load datasets with annotations
+    custom_datasets = {x: CustomDataset(data_dir=os.path.join(data_dir, x),
+                                        annotations_file=os.path.join(data_dir, 'ann.json'),
+                                        transform=data_transforms[x]) for x in ['train', 'val']}
 
-# Create data loaders
-dataloaders = {x: DataLoader(custom_datasets[x], batch_size=4, shuffle=True, num_workers=4) for x in ['train', 'val']}
+    # Create data loaders
+    dataloaders = {x: DataLoader(custom_datasets[x], batch_size=4, shuffle=True, num_workers=4) for x in ['train', 'val']}
 
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # or mps
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "mps") # or mps
 
-# Initialize the CNN
-model = cnn()
-model = model.to(device)
+    # Initialize the CNN
+    model = cnn()
+    model = model.to(device)
 
-# Define a Loss function and optimizer
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    # Define a Loss function and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
-# Train the network
-for epoch in range(2):  # loop over the dataset multiple times
-    running_loss = 0.0
-    for i, data in enumerate(dataloaders['train'], 0):
-        # get the inputs; data is a list of [inputs, labels]
-        inputs, labels = data[0].to(device), data[1].to(device)
 
-        # zero the parameter gradients
-        optimizer.zero_grad()
+    # Train the network
+    for epoch in range(2):  # loop over the dataset multiple times
+        running_loss = 0.0
+        for i, data in enumerate(dataloaders['train'], 0):
+            # get the inputs; data is a list of [inputs, labels]
+            print(type(data[0]))
+            print(data[0])
+            print(data[1])
+            inputs, labels = data[0].to(device), data[1].to(device)
 
-        # forward + backward + optimize
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+            # zero the parameter gradients
+            optimizer.zero_grad()
 
-        # print statistics
-        running_loss += loss.item()
-        if i % 2000 == 1999:    # print every 2000 mini-batches
-            print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 2000))
-            running_loss = 0.0
+            # forward + backward + optimize
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
 
-print('Finished Training')
+            # print statistics
+            running_loss += loss.item()
+            if i % 2000 == 1999:    # print every 2000 mini-batches
+                print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 2000))
+                running_loss = 0.0
+
+    print('Finished Training')
 
