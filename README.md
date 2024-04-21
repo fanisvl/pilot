@@ -75,8 +75,25 @@ colcon build
 ros2 launch eufs_launcher eufs_launcher.launch.py
 ```
 
-Common Erros
-1. Visual Studio Code when trying to write to mounted file:
+# Common Erros
+
+1. Authorization required, but no authorization protocol specified. This error usually occurs when trying to launch a GUI
+```
+Authorization required, but no authorization protocol specified
+could not connect to display :0
+This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix  this problem.
+Available platform plugins are: eglfs, linuxfb, minimal, minimalegl, offscreen, vnc, xcb.
+```
+**Fix:** Run ```xhost +local docker``` from a local terminal
+
+2. model.pt not found eg.
+```
+ros2 run vision stereo_cam_sub
+FileNotFoundError: [Errno 2] No such file or directory: 'model/yolov8s700.pt'
+```
+**Fix:** The ros2 run command should be ran from inside the vision/ directory which contains the model/ directory
+
+3. Visual Studio Code when trying to write to mounted file:
   Failed to save Insufficient permissions. Select 'Retry as Sudo' to retry as superuser.
   Fix:
   ```sudo chown -R $USER .```
