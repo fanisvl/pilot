@@ -40,12 +40,13 @@ class StereoCamSub(Node):
 
         result = self.model.predict(image)[0]
         boxes = result.boxes  # Boxes object for bbox outputs
-        
+        print(f"\n {result} \n")
         colors = {
-            0: (255, 0, 0),
-            1: (0, 255, 255),
-            2: (0, 165, 255),
-            3: (0, 165, 255),
+            # OpenCV uses (Blue, Green, Red) format
+            0: (255, 0, 0), # blue_cone
+            1: (0, 255, 255), # yellow_cone
+            2: (0, 165, 255), # orange_cone
+            3: (0, 0, 255), # large_orange_cone
         }
 
         for box in boxes:
