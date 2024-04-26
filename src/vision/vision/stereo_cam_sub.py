@@ -12,7 +12,8 @@ class StereoCamSub(Node):
 
         self.subscription = self.create_subscription(
             Image,
-            '/camera/image_raw',
+            '/camera/image_raw', # Subscribe to local camera (from stereo_cam_pub)
+            # '/zed/left/image_rect_color', # Subscribe to simulator camera (from sim pub)
             self.image_callback,
             10
         )
@@ -36,16 +37,15 @@ class StereoCamSub(Node):
         cv2.waitKey(1)
 
     def inference(self, image):  
-        # TODO: Add an inference class
 
         result = self.model.predict(image)[0]
         boxes = result.boxes  # Boxes object for bbox outputs
         
         colors = {
-            "0": (255, 0, 0),
-            "1": (0, 255, 255),
-            "2": (0, 165, 255),
-            "3": (0, 165, 255),
+            0: (255, 0, 0),
+            1: (0, 255, 255),
+            2: (0, 165, 255),
+            3: (0, 165, 255),
         }
 
         for box in boxes:
@@ -55,8 +55,8 @@ class StereoCamSub(Node):
             class_pred = box.cls.item()
             color = colors.get(class_pred, (0, 255, 0))
             cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
-            label = f"{self.model.names[class_pred].replace('_cone', '')} - {conf}"
-            cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+            label = "{:.2f}".format(conf)
+            cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
         
         return image
 
