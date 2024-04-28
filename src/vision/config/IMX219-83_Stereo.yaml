@@ -1,0 +1,12 @@
+stereo_camera:
+  ros__parameters:
+    resoltuion_x: 3280
+    resolution_y: 2464
+    sensor_width: 3.6
+    sensor_height: 2.7
+    baseline: 60
+    focal_length: 2.6
+    angle_of_view_diagonal: 83
+    angle_of_view_horizontal: 73
+    angle_of_view_vertical: 50
+    pixel_size: 0.0011

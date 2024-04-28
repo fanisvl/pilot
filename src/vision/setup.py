@@ -1,3 +1,5 @@
+import os
+from glob import glob
 from setuptools import setup
 
 package_name = 'vision'
@@ -10,6 +12,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+	(os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+	(os.path.join('share', package_name, 'config'), glob('config/*.yaml'))
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -23,6 +27,10 @@ setup(
             "test_node = vision.test_node:main",
             "stereo_cam_pub = vision.stereo_cam_pub:main",
             "stereo_cam_sub = vision.stereo_cam_sub:main",
+	    "system_entry_point = vision.state_machine:system_entry_point",
+	    "car_entry_point = vision.state_machine:car_entry_point",
+	    "stereo_camera_entry_point = vision.sensors:stereo_camera_entry_point",
+	    "imu_entry_point = vision.sensors:imu_entry_point",
         ],
     },
 )
