@@ -27,10 +27,8 @@ setup(
             "test_node = vision.test_node:main",
             "stereo_cam_pub = vision.stereo_cam_pub:main",
             "stereo_cam_sub = vision.stereo_cam_sub:main",
-	    "system_entry_point = vision.state_machine:system_entry_point",
-	    "car_entry_point = vision.state_machine:car_entry_point",
-	    "stereo_camera_entry_point = vision.sensors:stereo_camera_entry_point",
-	    "imu_entry_point = vision.sensors:imu_entry_point",
+            "stereo_camera_entry_point = vision.sensors:stereo_camera_entry_point",
+            "imu_entry_point = vision.sensors:imu_entry_point",
         ],
     },
 )
