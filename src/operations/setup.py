@@ -20,6 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            "system_entry_point = operations.state_machine:system_entry_point",
+            "car_entry_point = operations.state_machine:car_entry_point",
         ],
     },
 )
