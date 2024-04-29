@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'operations'
+package_name = 'planning'
 
 setup(
     name=package_name,
