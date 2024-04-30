@@ -14,7 +14,7 @@ def generate_launch_description():
     imu_params_path = os.path.join(config_path, 'ICM20948_IMU.yaml')
 
     system_node = Node(
-        package='vision',
+        package='operations',
         executable='system_entry_point',
         name='system',
         parameters=[system_params_path]
@@ -22,7 +22,7 @@ def generate_launch_description():
     launch_description.add_action(system_node)
 
     car_node = Node(
-        package='vision',
+        package='operations',
         executable='car_entry_point',
         name='car',
         parameters=[car_params_path]
