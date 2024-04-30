@@ -97,7 +97,7 @@ FileNotFoundError: [Errno 2] No such file or directory: 'model/yolov8s700.pt'
 ```
 **Fix:** The ros2 run command should be ran from inside the vision/ directory which contains the model/ directory
 
-#### 3. ROS2 not found when doing docker exec
+#### 3. ROS2 not found when launching the simulator
 ```
 bash: ros2 command not found
 ```
