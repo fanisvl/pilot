@@ -77,24 +77,34 @@ ros2 launch eufs_launcher eufs_launcher.launch.py
 
 # Common Erros
 
-1. Authorization required, but no authorization protocol specified. This error usually occurs when trying to launch a GUI
+#### 1. Authorization required, but no authorization protocol specified. This error usually occurs when trying to launch a GUI
 ```
 Authorization required, but no authorization protocol specified
 could not connect to display :0
 This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix  this problem.
 Available platform plugins are: eglfs, linuxfb, minimal, minimalegl, offscreen, vnc, xcb.
 ```
-**Fix:** Run ```xhost +local docker``` from a local terminal
+**Fixes:**
 
-2. model.pt not found eg.
+First: Run ```xhost +local docker``` from a local terminal
+
+Second: Run ``` xhost +local:`docker inspect --format='{{ .Config.Hostname }}' <container-id>` ``` from a local terminal
+
+#### 2. model.pt not found eg.
 ```
 ros2 run vision stereo_cam_sub
 FileNotFoundError: [Errno 2] No such file or directory: 'model/yolov8s700.pt'
 ```
 **Fix:** The ros2 run command should be ran from inside the vision/ directory which contains the model/ directory
 
-3. Visual Studio Code when trying to write to mounted file:
-  Failed to save Insufficient permissions. Select 'Retry as Sudo' to retry as superuser.
-  Fix:
-  ```sudo chown -R $USER .```
+#### 3. ROS2 not found when launching the simulator
+```
+bash: ros2 command not found
+```
+**Fix:** ```source /opt/ros/$ROS_DISTRO/setup.bash```
 
+#### 4. Visual Studio Code when trying to write to mounted file:
+```
+Failed to save Insufficient permissions. Select 'Retry as Sudo' to retry as superuser.
+```
+**Fix:** ```sudo chown -R $USER .```
