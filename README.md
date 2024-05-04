@@ -95,7 +95,7 @@ Second: Run ``` xhost +local:`docker inspect --format='{{ .Config.Hostname }}' <
 ros2 run vision stereo_cam_sub
 FileNotFoundError: [Errno 2] No such file or directory: 'model/yolov8s700.pt'
 ```
-**Fix:** The ros2 run command should be ran from inside the vision/ directory which contains the model/ directory
+**Fix:** The ros2 run command should be ran from the autopilot/ directory.
 
 #### 3. ROS2 not found when launching the simulator
 ```
