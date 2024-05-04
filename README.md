@@ -84,9 +84,7 @@ could not connect to display :0
 This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix  this problem.
 Available platform plugins are: eglfs, linuxfb, minimal, minimalegl, offscreen, vnc, xcb.
 ```
-**Fixes:**
-
-First: Run ```xhost +local:docker``` from a local terminal
+**Fix:** Run ```xhost +local:docker``` from a local terminal.
 
 #### 2. model.pt not found eg.
 ```
