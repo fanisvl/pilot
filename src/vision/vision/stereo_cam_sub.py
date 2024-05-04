@@ -13,12 +13,11 @@ class StereoCamSub(Node):
         self.subscription = self.create_subscription(
             Image,
             '/camera/image_raw', # Subscribe to local camera (from stereo_cam_pub)
-            # '/zed/left/image_rect_color', # Subscribe to simulator camera (from sim pub)
             self.image_callback,
             10
         )
         
-        self.model = YOLO('model/yolov8s700.pt') 
+        self.model = YOLO('src/vision/vision/model/yolov8s700.pt') 
         self.bridge = CvBridge()
         self.get_logger().info("stereo_cam Subscriber initialized.")
 
@@ -31,7 +30,6 @@ class StereoCamSub(Node):
             return
 
         annotated_image = self.inference(cv_image)
-
         # Display the image
         cv2.imshow("Camera Image", annotated_image)
         cv2.waitKey(1)
