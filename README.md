@@ -86,9 +86,7 @@ Available platform plugins are: eglfs, linuxfb, minimal, minimalegl, offscreen, 
 ```
 **Fixes:**
 
-First: Run ```xhost +local docker``` from a local terminal
-
-Second: Run ``` xhost +local:`docker inspect --format='{{ .Config.Hostname }}' <container-id>` ``` from a local terminal
+First: Run ```xhost +local:docker``` from a local terminal
 
 #### 2. model.pt not found eg.
 ```
