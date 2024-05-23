@@ -23,17 +23,18 @@ Before starting, run this command to make GUIs work inside a docker container:
     bash
   ```
 
-With GPU support - **not tested**
+Jetson with GPU Support - **currently not working**
   ```
   docker run -it --net=host --gpus all \
-      --env="NVIDIA_DRIVER_CAPABILITIES=all" \
-      --env="DISPLAY" \
-      --env="QT_X11_NO_MITSHM=1" \
-      --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-      --device=/dev/video0:/dev/video0 \
-      -v .:/workspace/autopilot \
-      pilot \
-      bash
+    --env="NVIDIA_DRIVER_CAPABILITIES=all" \
+    --env="DISPLAY" \
+    --env="QT_X11_NO_MITSHM=1" \
+    --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+    --device=/dev/video0:/dev/video0 \
+    --device=/dev/video0:/dev/video1 \
+    -v ~/workspace:/workspace \
+    pilot \
+    bash
   ```
 
 5. Build ROS autopilot packages **inside workspace/autopilot**
@@ -84,18 +85,14 @@ could not connect to display :0
 This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix  this problem.
 Available platform plugins are: eglfs, linuxfb, minimal, minimalegl, offscreen, vnc, xcb.
 ```
-**Fixes:**
-
-First: Run ```xhost +local docker``` from a local terminal
-
-Second: Run ``` xhost +local:`docker inspect --format='{{ .Config.Hostname }}' <container-id>` ``` from a local terminal
+**Fix:** Run ```xhost +local:docker``` from a local terminal.
 
 #### 2. model.pt not found eg.
 ```
 ros2 run vision stereo_cam_sub
 FileNotFoundError: [Errno 2] No such file or directory: 'model/yolov8s700.pt'
 ```
-**Fix:** The ros2 run command should be ran from inside the vision/ directory which contains the model/ directory
+**Fix:** The ros2 run command should be ran from the autopilot/ directory.
 
 #### 3. ROS2 not found when launching the simulator
 ```

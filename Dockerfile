@@ -1,7 +1,5 @@
-# TODO: NVIDIA Image for Jetson?
-
-# Base image for development
-FROM ubuntu:20.04
+# Use NVIDIA's L4T base image for Jetson
+FROM nvcr.io/nvidia/l4t-base:r32.4.3
 
 # Set DEBIAN_FRONTEND to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
