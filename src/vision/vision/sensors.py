@@ -4,9 +4,12 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import Vector3
 import rclpy.timer
 from sensor_msgs.msg import Imu
-from math import acos, sqrt
+from math import acos, sqrt, pi
 
 from rcl_interfaces.msg import SetParametersResult
+
+from . import plot_util
+import numpy as np
 
 class StereoCamera(Node):
     def __init__(self):
@@ -79,16 +82,18 @@ class IMU(Node):
 
         self.accelerometer_biases = [0.0, 0.0, 0.0]
         self.gyroscope_biases = [0.0, 0.0, 0.0]
-        self.magnetometer_biases = [0.0, 0.0, 0.0]
+        #self.magnetometer_biases = [0.0, 0.0, 0.0]
 
-        self.tolerance = 1e4
+        self.tolerance = 1e-4
 
         self.is_calibrating = True # we want to calibrate on startup
+        
         self.initialize_calibration()
 
         self.is_gyroscope_data_in_rad = True
 
         self.previous_time = 0.0
+        self.previous_time_debug = 0.0
 
         # normalization parameters
 
@@ -113,7 +118,7 @@ class IMU(Node):
 
         # rotation angles
         # all the point is to calculate as accurate as possible this
-        self.rotation_estimations = [] # contains arrays of 3 elemnts for each axis X-Y-Z
+        self.rotation_estimations = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] # contains arrays of 3 elemnts for each axis X-Y-Z
         self.rotation_angles = [0.0, 0.0, 0.0]
 
 
@@ -141,9 +146,23 @@ class IMU(Node):
 
     def raw_data_callback(self, msg):
         
+        # in seconds
+        self.current_time = msg.header.stamp.sec + (msg.header.stamp.nanosec / (1000000.0)) / 1000.0
+
         # throttle mechanism we dont want to read the same values over and over again
-        if(self.previous_time == msg.header.stamp.sec):
-            return
+        #if(self.current_time - self.previous_time < 0.01):
+        #    return
+        # time
+        #self.get_logger().info("Current Time:%f" % self.current_time)
+        self.dt = self.current_time - self.previous_time
+        self.previous_time = self.current_time
+
+        self.is_debugging = True
+
+        if(self.current_time - self.previous_time_debug < 1.0):
+            self.is_debugging = False
+        else:
+            self.previous_time_debug = self.current_time
         
         # normalize data before processing it
 
@@ -159,6 +178,8 @@ class IMU(Node):
             # magnetometer data is not available TODO
         
         if(self.is_calibrating):
+            self.calibration_time_values[self.calibration_time_values_index] = self.current_time
+            self.calibration_time_values_index += 1
 
             self.average_accelerometer_values[0] += msg.linear_acceleration.x / self.calibration_samples
             self.average_accelerometer_values[1] += msg.linear_acceleration.y / self.calibration_samples
@@ -167,7 +188,19 @@ class IMU(Node):
             self.average_gyroscope_values[0] += msg.angular_velocity.x / self.calibration_samples
             self.average_gyroscope_values[1] += msg.angular_velocity.y / self.calibration_samples
             self.average_gyroscope_values[2] += msg.angular_velocity.z / self.calibration_samples
-            
+
+            self.calibration_data_values[0][0][self.calibration_data_values_indices[0]] = msg.linear_acceleration.x
+            self.calibration_data_values[0][1][self.calibration_data_values_indices[0]] = msg.linear_acceleration.y
+            self.calibration_data_values[0][2][self.calibration_data_values_indices[0]] = msg.linear_acceleration.z
+
+            self.calibration_data_values_indices[0] += 1
+
+            self.calibration_data_values[1][0][self.calibration_data_values_indices[1]] = msg.angular_velocity.x
+            self.calibration_data_values[1][1][self.calibration_data_values_indices[1]] = msg.angular_velocity.y
+            self.calibration_data_values[1][2][self.calibration_data_values_indices[1]] = msg.angular_velocity.z        
+
+            self.calibration_data_values_indices[1] += 1
+
             # magnetometer data is not available TODO
             
             self.calibration_sample_counter += 1
@@ -175,15 +208,11 @@ class IMU(Node):
             if(self.calibration_sample_counter == self.calibration_samples):
                 self.is_calibrating = False
                 self.deinitialize_calibration()
-                
-                self.get_logger().info("Accelerometer Biases: [%f," % self.accelerometer_biases[0] + "%f," % self.accelerometer_biases[1] + "%f]" % self.accelerometer_biases[2])
-                self.get_logger().info("Gyroscope Biases: [%f," % self.gyroscope_biases[0] + "%f," % self.gyroscope_biases[1] + "%f]" % self.gyroscope_biases[2])
+                if(self.is_debugging):
+                    self.get_logger().info("Accelerometer Biases: [%f," % self.accelerometer_biases[0] + "%f," % self.accelerometer_biases[1] + "%f]" % self.accelerometer_biases[2])
+                    self.get_logger().info("Gyroscope Biases: [%f," % self.gyroscope_biases[0] + "%f," % self.gyroscope_biases[1] + "%f]" % self.gyroscope_biases[2])
             
             return
-        
-        # time
-        self.dt = msg.header.stamp.sec - self.previous_time
-        self.previous_time = msg.header.stamp.sec
         
         # Sensor value correction 
 
@@ -204,14 +233,14 @@ class IMU(Node):
 
         parameters = [rclpy.parameter.Parameter('accelerometer',
                                                 rclpy.Parameter.Type.DOUBLE_ARRAY,
-                                                [self.accelerometer.x,
-                                                 self.accelerometer.y,
-                                                 self.accelerometer.z]),
+                                                [msg.linear_acceleration.x,
+                                                 msg.linear_acceleration.y,
+                                                 msg.linear_acceleration.z]),
                       rclpy.parameter.Parameter('gyroscope',
                                                 rclpy.Parameter.Type.DOUBLE_ARRAY,
-                                                [self.gyroscope.x,
-                                                 self.gyroscope.y,
-                                                 self.gyroscope.z])]
+                                                [msg.angular_velocity.x,
+                                                 msg.angular_velocity.y,
+                                                 msg.angular_velocity.z])]
         
 
         # magnetometer data is not available TODO
@@ -221,10 +250,17 @@ class IMU(Node):
 
         # perform kalman filter on rotation_estimations
 
-        self.kalman_filter()
+        if(self.is_debugging):
+            self.get_logger().info("Angle Estimation 1: [%f," % self.rotation_estimations[0][0] + "%f," % self.rotation_estimations[0][1] + "%f]" % self.rotation_estimations[0][2])
+            self.get_logger().info("Angle Estimation 2: [%f," % self.rotation_estimations[1][0] + "%f," % self.rotation_estimations[1][1] + "%f]" % self.rotation_estimations[1][2])
 
-    def kalman_filter():
-        pass # TODO
+        #self.kalman_filter()
+        self.rotation_angles[0] = self.rotation_estimations[1][0]
+        self.rotation_angles[1] = self.rotation_estimations[1][1]
+        self.rotation_angles[2] = self.rotation_estimations[1][2]
+
+    def kalman_filter(self):
+        pass #TODO
 
     def parameter_callback(self, parameters):
         for parameter in parameters:
@@ -235,20 +271,33 @@ class IMU(Node):
 
                 self.accelerometer_magnitude = sqrt(self.accelerometer.x * self.accelerometer.x + self.accelerometer.y * self.accelerometer.y + self.accelerometer.z * self.accelerometer.z)
 
-                self.get_logger().info("Accelerometer [%f," % self.accelerometer.x + "%f," % self.accelerometer.y + "%f]" % self.accelerometer.z)
+                if(self.accelerometer_magnitude < self.tolerance):
+                    self.rotation_estimations[0][0] = 0.0
+                    self.rotation_estimations[0][1] = 0.0
+                    self.rotation_estimations[0][2] = 0.0
+                    #self.get_logger().info("Accelerometer [%f," % self.accelerometer.x + "%f," % self.accelerometer.y + "%f]" % self.accelerometer.z)
+                    continue
 
-                self.rotation_estimations.append([acos(self.accelerometer.x / self.accelerometer_magnitude),
-                                                  acos(self.accelerometer.y / self.accelerometer_magnitude),
-                                                  acos(self.accelerometer.z / self.accelerometer_magnitude)])
+                #self.get_logger().info("Accelerometer [%f," % self.accelerometer.x + "%f," % self.accelerometer.y + "%f]" % self.accelerometer.z)
+                rad_to_deg =    180.0 / pi
+                if(self.is_debugging):
+                    self.get_logger().info("Rotation Estimations Accel [%f," % (self.rotation_estimations[0][0] * rad_to_deg) + "%f," % (self.rotation_estimations[0][1] * rad_to_deg) + "%f]" % (self.rotation_estimations[0][2] * rad_to_deg) + "%f")
+                self.rotation_estimations[0][0] = acos(self.accelerometer.x / self.accelerometer_magnitude)
+                self.rotation_estimations[0][1] = acos(self.accelerometer.y / self.accelerometer_magnitude)
+                self.rotation_estimations[0][2] = acos(self.accelerometer.z / self.accelerometer_magnitude)
             elif parameter.name == 'gyroscope':
                 self.gyroscope.x = parameter.value[0]
                 self.gyroscope.y = parameter.value[1]
                 self.gyroscope.z = parameter.value[2]
-                self.get_logger().info("Gyroscope [%f," % self.gyroscope.x + "%f," % self.gyroscope.y + "%f]" % self.gyroscope.z)
+                #self.get_logger().info("Gyroscope [%f," % self.gyroscope.x + "%f," % self.gyroscope.y + "%f]" % self.gyroscope.z + "%f")
 
-                self.rotation_estimations.append([self.rotation_angles[0] + self.gyroscope.x * self.dt, 
-                                                  self.rotation_angles[1] + self.gyroscope.y * self.dt, 
-                                                  self.rotation_angles[2] + self.gyroscope.z * self.dt])
+                self.rotation_estimations[1][0] = self.rotation_angles[0] + self.gyroscope.x * self.dt 
+                self.rotation_estimations[1][1] = self.rotation_angles[1] + self.gyroscope.y * self.dt 
+                self.rotation_estimations[1][2] = self.rotation_angles[2] + self.gyroscope.z * self.dt
+                
+                rad_to_deg =    180.0 / pi
+                if(self.is_debugging):
+                    self.get_logger().info("Rotation Estimations Gyro [%f," % (self.rotation_estimations[1][0] * rad_to_deg) + "%f," % (self.rotation_estimations[1][1] * rad_to_deg) + "%f]" % (self.rotation_estimations[1][2] * rad_to_deg) + "%f")
 
         return SetParametersResult(successful=True)
 
@@ -256,17 +305,25 @@ class IMU(Node):
         # calibrate each axis
         self.average_accelerometer_values = [0.0, 0.0, 0.0]
         self.average_gyroscope_values = [0.0, 0.0, 0.0]
-        self.average_magnetometer_values = [0.0, 0.0, 0.0]
+        #self.average_magnetometer_values = [0.0, 0.0, 0.0]
 
         self.calibration_samples = samples
         self.calibration_sample_counter = 0
+
+        self.calibration_data_values = np.zeros((2, 3, self.calibration_samples), dtype=np.float32)
+        self.calibration_data_values_indices = np.zeros((2,), dtype=np.int32)
+        self.calibration_time_values = np.zeros((self.calibration_samples,), dtype=np.int32)
+        self.calibration_time_values_index = 0
 
     def deinitialize_calibration(self):
         for i in range(3):
             self.accelerometer_biases[i] = self.average_accelerometer_values[i]
             self.gyroscope_biases[i] = self.average_gyroscope_values[i]
-            self.magnetometer_biases[i] = self.average_magnetometer_values[i]
+            #self.magnetometer_biases[i] = self.average_magnetometer_values[i]
 
+        plot_util.plot_imu_data(self.calibration_data_values, self.calibration_time_values)
+
+        self.get_logger().info("Finished calibration!")
 def imu_entry_point(args=None):
     rclpy.init(args=args)
 
