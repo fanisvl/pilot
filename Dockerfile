@@ -14,18 +14,22 @@ RUN apt-get update && \
     apt-get update && \
     apt-get upgrade -y
 
-# Add ROS 2 GPG key and apt repository
-RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
-    | tee /etc/apt/sources.list.d/ros2.list > /dev/null && \
+# Add ROS Noetic GPG key and apt repository
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
+    | tee /etc/apt/sources.list.d/ros-noetic.list > /dev/null && \
     apt-get update
 
-# Install ROS 2 desktop packages
-RUN apt-get install -y ros-foxy-desktop python3-argcomplete python3-pip && \
+# Install ROS Noetic desktop packages
+RUN apt-get install -y ros-noetic-desktop-full python3-rosdep python3-rosinstall python3-rosinstall-generator python3-wstool build-essential && \
     apt-get install -y ros-dev-tools
 
-# Source ROS 2 setup script
-RUN echo "source /opt/ros/foxy/setup.bash" >> ~/.bashrc
+# Initialize rosdep
+RUN rosdep init && \
+    rosdep update
+
+# Source ROS Noetic setup script
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 
 # Set the working directory in the container
 WORKDIR /workspace
