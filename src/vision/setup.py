@@ -1,6 +1,7 @@
 import os
 from glob import glob
 from setuptools import setup
+from setuptools import find_packages
 
 package_name = 'vision'
 
@@ -26,9 +27,7 @@ setup(
         'console_scripts': [
             "test_node = vision.test_node:main",
             "stereo_cam_pub = vision.stereo_cam_pub:main",
-            "stereo_cam_sub = vision.stereo_cam_sub:main",
-            "stereo_camera_entry_point = vision.sensors:stereo_camera_entry_point",
-            "imu_entry_point = vision.sensors:imu_entry_point",
+            "cone_estimation = vision.cone_estimation:main"
         ],
     },
 )

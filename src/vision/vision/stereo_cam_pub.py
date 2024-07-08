@@ -7,8 +7,8 @@ import cv2
 class StereoCamPub(Node):
 
     def __init__(self):
-        super().__init__("stereo_cam_pub")
-        self.publisher_ = self.create_publisher(Image, '/camera/image_raw', 10)
+        super().__init__("StereoCamPub")
+        self.publisher_ = self.create_publisher(Image, '/camera', 10)
         timer_period = 0.01 # sec
         self.timer = self.create_timer(timer_period, self.publish_image)
         self.bridge = CvBridge()
