@@ -61,7 +61,6 @@ class Planning(Node):
         left_points = []
         right_points = []
         for cone in filtered_cone_estimates:
-            print(cone)
             point = (cone.x, cone.y)
             if cone.label == 0:
                 left_points.append(point)
