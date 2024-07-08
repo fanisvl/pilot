@@ -26,8 +26,9 @@ setup(
     entry_points={
         'console_scripts': [
             "test_node = vision.test_node:main",
-            "stereo_cam_pub = vision.stereo_cam_pub:main",
-            "cone_estimation = vision.cone_estimation:main"
+            "camera_publisher = vision.camera_publisher:main",
+            "cone_estimation = vision.cone_estimation:main",
+            "fake_camera = vision.fake_camera:main",
         ],
     },
 )
