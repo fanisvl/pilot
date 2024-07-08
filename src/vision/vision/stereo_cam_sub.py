@@ -12,7 +12,7 @@ class StereoCamSub(Node):
 
         self.subscription = self.create_subscription(
             Image,
-            '/camera/image_raw', # Subscribe to local camera (from stereo_cam_pub)
+            '/camera/', # Subscribe to local    camera (from stereo_cam_pub)
             self.image_callback,
             10
         )
