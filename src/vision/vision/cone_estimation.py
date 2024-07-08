@@ -69,8 +69,6 @@ class ConeEstimation(Node):
         cropped_cones = []
         id = 0
 
-        # Gather info for each cone and store in cone_estimates
-        # Crop cone images
         if len(bounding_boxes) <= 1:
             print("Waiting to detect at least 2 cones.")
             return
@@ -90,16 +88,16 @@ class ConeEstimation(Node):
         print("Keypoint regression finished")
 
         keypoints_2d = {}
-        print(f"keypoints: \n {keypoints}")
 
         # Map 7 keypoints for each cone
+        # TODO: Changing the frame size of the input image causes bugs in cone estimation (sideways path)
         for cone in cone_estimates.values():
             # Map keypoint model  output from cropped image to full image coordinates
             # The model output is 14 (x,y) coordinates => 7 keypoints
 
             id = cone["id"]
             x1, y1, x2, y2 = map(int, bounding_boxes[id].xyxy[0]) # bounding box coordinates in full image
-            for point in range(0, 14, 2):
+            for point in range(0, len(keypoints[0]), 2):
                 cropped_height = y2 - y1
                 cropped_width = x2 - x1
 
@@ -133,7 +131,7 @@ class ConeEstimation(Node):
         print(f"Total Keypoint Regr. Time: {keypoint_reg_end-keypoint_reg_start:.4}")
 
 
-        # Convert cone estimates to ROS message and publish
+        # TODO: Remove cone_estimates dict and just use ROS msg
         cone_estimates_msg = ConeEstimates()
         cone_estimates_msg.cones = []
         for cone in cone_estimates.values():
@@ -161,7 +159,6 @@ class ConeEstimation(Node):
             for cone in cone_estimates.values():   
                 x = cone["X"]
                 y = cone["Y"]
-                print(f"cone label: {cone['label']}")
                 if cone['label'] in colors.keys():
                     plt.scatter(x, y, color=colors[cone['label']])
                 plt.annotate(f'{cone["id"]}', (x, y))
@@ -172,7 +169,7 @@ class ConeEstimation(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    cone_estimation = ConeEstimation('models/yolov8n.pt', 'src/vision/vision/models/keypoint_regression.pth')
+    cone_estimation = ConeEstimation('src/vision/vision/models/yolov8n-100e.pt', 'src/vision/vision/models/keypoint_regression.pth')
     
     rclpy.spin(cone_estimation) # Node is kept alive until killed with ctrl+c
     cone_estimation.destroy_node()
