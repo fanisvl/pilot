@@ -12,5 +12,7 @@ RUN apt-get update && apt-get install -y \
 # Set Python 3.7 as the default python version
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
 
+RUN python3 -m pip install --upgrade pip
+
 # Install pip for Python 3.7
 RUN ln -s /usr/bin/python3.7 /usr/local/bin/python3
