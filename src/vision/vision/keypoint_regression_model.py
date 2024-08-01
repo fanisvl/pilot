@@ -19,8 +19,8 @@ class KeypointRegression:
         print(f"KeypointRegression Device: {self.device}")
 
         # Load the saved model
-        self.model = cnn()
-        self.model.load_state_dict(torch.load(model_src, map_location=torch.device(self.device)))
+        self.model = cnn().to(self.device)
+        self.model.load_state_dict(torch.load(model_src, map_location=self.device))
         self.model.eval()  # Set model to evaluation mode
 
 
