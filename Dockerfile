@@ -1,6 +1,38 @@
-FROM timongentzsch/l4t-ubuntu20-ros2-base:latest
+FROM timongentzsch/l4t-ubuntu20-base
 
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Install ROS1 Noetiic
+# Install necessary packages and tools
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg2 \
+    lsb-release
+
+# Add the ROS repository to the apt sources list
+RUN echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/ros1-latest.list
+
+# Add the ROS key to apt
+RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add -
+
+# Update package lists and install ROS Noetic
+RUN apt-get update && apt-get install -y \
+    ros-noetic-ros-base \
+    ros-noetic-foxglove-bridge \
+    python3-rosdep \
+    python3-rosinstall \
+    python3-rosinstall-generator \
+    python3-wstool \
+    build-essential \
+    tmux
+
+# Initialize rosdep
+RUN rosdep init && \
+    rosdep update --include-eol-distros
+
+# Source ROS setup script
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+
 
 # Install Ultralytics with compatible PyTorch whl (q-engineering)
 
@@ -49,7 +81,7 @@ RUN pip3 install \
 RUN pip3 install --no-deps ultralytics
 
 WORKDIR /
-RUN echo "source workspace/autopilot/install/setup.bash" >> ~/.bashrc
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+RUN echo "source /workspace/autopilot/install/setup.bash" >> ~/.bashrc
 # Entry point for the container
 ENTRYPOINT ["/bin/bash", "-c", "exec bash"]
-
