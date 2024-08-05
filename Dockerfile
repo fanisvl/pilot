@@ -39,9 +39,12 @@ RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 
 # Install dependencies
 RUN apt-get update && \
-    apt-get install -y python3-pip libjpeg-dev zlib1g-dev libpython3-dev libavcodec-dev libavformat-dev libswscale-dev libopenblas-base libopenmpi-dev libomp-dev && \
+    apt-get install -y python3-pip python3.8-venv libjpeg-dev zlib1g-dev libpython3-dev libavcodec-dev libavformat-dev libswscale-dev libopenblas-base libopenmpi-dev libomp-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Virtual Environment
+
 
 RUN pip3 install future && \
     pip3 install -U --user wheel mock pillow && \
@@ -64,7 +67,7 @@ RUN gdown https://drive.google.com/uc?id=19UbYsKHhKnyeJ12VPUwcSvoxJaX7jQZ2 && \
 RUN pip3 install \
     gitpython>=3.1.30 \
     matplotlib>=3.3 \
-    numpy>=1.23.5 \
+    numpy>=1.23.5 --force \
     pillow>=10.3.0 \
     psutil \
     PyYAML>=5.3.1 \
