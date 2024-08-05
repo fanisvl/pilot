@@ -1,2 +1,0 @@
-ultralytics
-numpy>=1.20

@@ -1,6 +1,8 @@
 .venv
 /build
+/devel
 /log
 /install
 *__pycache__/
 .vscode/
+.catkin_workspace
