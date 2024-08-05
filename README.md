@@ -22,6 +22,12 @@ Before starting, run this command to make GUIs work inside a docker container:
   fanisvl/ub20-py38-ros1noetic-pytorch:latest \
   bash
   ```
+  Install CPU Pytorch once inside the container
+  ```
+    pip3 uninstall torch torchvision
+    pip3 install torch torchvision
+  ```
+
 
 Jetson with GPU Support
   ```
