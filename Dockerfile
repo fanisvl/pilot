@@ -19,6 +19,7 @@ RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt
 RUN apt-get update && apt-get install -y \
     ros-noetic-ros-base \
     ros-noetic-foxglove-bridge \
+    ros-noetic-cv-bridge \
     python3-rosdep \
     python3-rosinstall \
     python3-rosinstall-generator \
@@ -82,6 +83,6 @@ RUN pip3 install --no-deps ultralytics
 
 WORKDIR /
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
-RUN echo "source /workspace/autopilot/install/setup.bash" >> ~/.bashrc
+RUN echo "source /workspace/autopilot/devel/setup.bash" >> ~/.bashrc
 # Entry point for the container
 ENTRYPOINT ["/bin/bash", "-c", "exec bash"]

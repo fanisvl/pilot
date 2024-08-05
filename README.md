@@ -5,27 +5,30 @@ Before starting, run this command to make GUIs work inside a docker container:
 
 1. Clone the repo
 
-3. Inside the cloned directory, build the image using the Dockefile
-  ```docker build -t pilot .```
-
-4. Run container  - This will also mount the repo you cloned to the docker container  
-   Execute these commands inside **/autopilot**  
+2. Execute command - This pull the correct image, run a container  and mount the autopilot dir to the docker container  
+   Execute this command inside **/autopilot**  
   No GPU
   ```
-  docker run -it --net=host \
-    --env="DISPLAY" \
-    --env="QT_X11_NO_MITSHM=1" \
-    --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-    --device=/dev/video0:/dev/video0 \
-    --device=/dev/dri:/dev/dri \
-    -v .:/workspace/autopilot \
-    pilot \
-    bash
+  docker run -it \
+  --net=host \
+  --ulimit nofile=1024:524288 \
+  -e DISPLAY=$DISPLAY \
+  --env="QT_X11_NO_MITSHM=1" \
+  -v "$HOME/.Xauthority:/root/.Xauthority:ro" \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  --device=/dev/video0:/dev/video0 \
+  --device=/dev/dri:/dev/dri \
+  -v ~/repos/autopilot:/workspace/autopilot \
+  fanisvl/ub20-py38-ros1noetic-pytorch:latest \
+  bash
   ```
 
-Jetson with GPU Support - **currently not working**
+Jetson with GPU Support
   ```
-  docker run -it --net=host --gpus all \
+  docker run -it \
+    --net=host \
+    --gpus all \
+    --ulimit nofile=1024:524288 \
     --env="NVIDIA_DRIVER_CAPABILITIES=all" \
     --env="DISPLAY" \
     --env="QT_X11_NO_MITSHM=1" \
@@ -33,13 +36,14 @@ Jetson with GPU Support - **currently not working**
     --device=/dev/video0:/dev/video0 \
     --device=/dev/video0:/dev/video1 \
     -v ~/workspace:/workspace \
-    pilot \
+    fanisvl/ub20-py38-ros1noetic-pytorch:latest \
     bash
   ```
 
-5. Build ROS autopilot packages **inside workspace/autopilot**
-   ```colcon build```
-   ```source install/setup.bash```
+3. Build ROS autopilot catkin workspace & packages - **inside workspace/autopilot**
+   ```catkin_make```
+   ```source devel/setup.bash```
+   ```echo "source /workspace/autopilot/devel/setup.bash" >> ~/.bashrc" ```
 
 # Simulator Setup
 Inside the same docker container and /workspace:  
