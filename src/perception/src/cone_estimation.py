@@ -21,23 +21,22 @@ colors = {
 class ConeEstimation:
     def __init__(self, cone_detection_src, keypoint_regression_src):
         rospy.init_node('cone_estimation')
-        rospy.loginfo("ConeEstimation node initialized.")
-
         self.subscription = rospy.Subscriber(
             '/camera',
             Image,
             self.cone_estimation,
-            queue_size=10
+            queue_size=1
         )
 
         self.publisher = rospy.Publisher(
             'cone_estimates',
             ConeEstimates,
-            queue_size=10
+            queue_size=1
         )
         self.cv_bridge = CvBridge()
         self.cone_detection_model = YOLO(cone_detection_src)
         self.keypoint_regression_model = KeypointRegression(keypoint_regression_src)
+        rospy.loginfo("ConeEstimation node initialized.")
 
     def cone_estimation(self, image_msg, demo=False):
         """
@@ -50,7 +49,7 @@ class ConeEstimation:
         > Translation to full image coordinates
         > PnP
         """
-
+        print(f"Starting cone_estimation pipeline..")
         total_time_start = time.time()
         full_image = self.cv_bridge.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
 
