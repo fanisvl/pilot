@@ -39,7 +39,7 @@ class ConeEstimation:
         self.cone_detection_model = YOLO(cone_detection_src)
         self.keypoint_regression_model = KeypointRegression(keypoint_regression_src)
 
-    def cone_estimation(self, image_msg):
+    def cone_estimation(self, image_msg, demo=False):
         """
         Demo includes image and plot visualization of keypoints and cone estimates.
 
@@ -101,9 +101,9 @@ class ConeEstimation:
 
                 # Add to 2D keypoints map for PnP
                 keypoints_2d[point//2] = [full_x, full_y]
-
-                cv2.putText(full_image, str(cone.id), (x2, y2), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 1)
-                cv2.circle(full_image, (full_x, full_y), 2, (0, 0, 255), -1)
+                if demo:
+                    cv2.putText(full_image, str(cone.id), (x2, y2), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 1)
+                    cv2.circle(full_image, (full_x, full_y), 2, (0, 0, 255), -1)
 
             # Estimate cone position with PnP using all the 2d keypoints for this cone
             rvec, tvec = PnP(keypoints_2d)
@@ -120,29 +120,28 @@ class ConeEstimation:
         rospy.loginfo(f"Total Keypoint Regr. Time: {keypoint_reg_end-keypoint_reg_start:.4}")
         self.publisher.publish(cone_estimates_msg)
 
-        # Visualization (if needed)
-        cv2.imshow("Keypoints", full_image)
-        cv2.waitKey(0)
-        plt.title("Estimated Cone Position Relative to Camera")
-        plt.scatter(0, 0, color='r', label='Camera')
-        plt.xlabel("X-axis")
-        plt.ylabel("Depth-axis")
-        plt.legend()
-        plt.grid(True)
-        plt.gca().set_aspect('equal', adjustable='box')
-        plt.axis('equal')
-        
-        for cone in cone_estimates_msg.cones:   
-            x = cone.x
-            y = cone.y
-            if cone.label in colors.keys():
-                plt.scatter(x, y, color=colors[cone.label])
-            plt.annotate(f'{cone.id}', (x, y))
+        if demo:
+            cv2.imshow("Keypoints", full_image)
+            cv2.waitKey(0)
+            plt.title("Estimated Cone Position Relative to Camera")
+            plt.scatter(0, 0, color='r', label='Camera')
+            plt.xlabel("X-axis")
+            plt.ylabel("Depth-axis")
+            plt.legend()
+            plt.grid(True)
+            plt.gca().set_aspect('equal', adjustable='box')
+            plt.axis('equal')
+            
+            for cone in cone_estimates_msg.cones:   
+                x = cone.x
+                y = cone.y
+                if cone.label in colors.keys():
+                    plt.scatter(x, y, color=colors[cone.label])
+                plt.annotate(f'{cone.id}', (x, y))
 
-        plt.show()
-        
+            plt.show()
+            
 
 if __name__ == '__main__':
-    cone_estimation = ConeEstimation('src/vision/vision/models/yolov8n-100e.pt', 'src/vision/vision/models/keypoint_regression.pth')
+    cone_estimation = ConeEstimation('models/yolov8n-100e.pt', 'models/keypoint_regression.pth')
     rospy.spin()  # Node is kept alive until killed with ctrl+c
-
