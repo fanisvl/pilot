@@ -142,5 +142,5 @@ class ConeEstimation:
             
 
 if __name__ == '__main__':
-    cone_estimation = ConeEstimation('models/yolov8n-100e.pt', 'models/keypoint_regression.pth')
+    cone_estimation = ConeEstimation('/workspace/autopilot/src/perception/src/models/yolov8n-100e.pt', '/workspace/autopilot/src/perception/src/models/keypoint_regression.pth')
     rospy.spin()  # Node is kept alive until killed with ctrl+c
