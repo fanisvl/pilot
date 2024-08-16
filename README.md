@@ -12,7 +12,7 @@ Before starting, run this command to make GUIs work inside a docker container:
   docker run -it \
   --net=host \
   --ulimit nofile=1024:524288 \
-  -e DISPLAY=$DISPLAY \
+  --env="DISPLAY=:0" \
   --env="QT_X11_NO_MITSHM=1" \
   -v "$HOME/.Xauthority:/root/.Xauthority:ro" \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
