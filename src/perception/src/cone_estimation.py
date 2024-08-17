@@ -80,7 +80,6 @@ class ConeEstimation:
         keypoint_reg_start = time.time()
         keypoints = self.keypoint_regression_model.eval(cropped_cones)
         keypoint_reg_end = time.time()
-        rospy.loginfo("Keypoint regression finished")
 
         keypoints_2d = {}
 
@@ -114,9 +113,9 @@ class ConeEstimation:
             cone.y = tvec[2][0]
 
         total_time_end = time.time()
-        rospy.loginfo(f"\nTotal Pipeline Time: {total_time_end-total_time_start:.4}")  
         rospy.loginfo(f"Cone Detection Time: {cone_det_end-cone_det_start:.4}")
-        rospy.loginfo(f"Total Keypoint Regr. Time: {keypoint_reg_end-keypoint_reg_start:.4}")
+        rospy.loginfo(f"Keypoint Regression Time: {keypoint_reg_end-keypoint_reg_start:.4}")
+        rospy.loginfo(f"Total Pipeline Time: {total_time_end-total_time_start:.4}")  
         self.publisher.publish(cone_estimates_msg)
 
         if demo:
