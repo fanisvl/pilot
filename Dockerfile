@@ -20,6 +20,9 @@ RUN apt-get update && apt-get install -y \
     ros-noetic-ros-base \
     ros-noetic-foxglove-bridge \
     ros-noetic-cv-bridge \
+    ros-noetic-rqt-graph \
+    ros-noetic-rqt-plot \
+    ros-noetic-rqt-runtime-monitor \
     python3-rosdep \
     python3-rosinstall \
     python3-rosinstall-generator \
