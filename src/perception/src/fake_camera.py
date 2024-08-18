@@ -12,7 +12,7 @@ class FakeCameraPublisher:
         rospy.init_node('fake_camera_publisher', anonymous=True)
         
         # Create a publisher object
-        self.publisher_ = rospy.Publisher('/camera', Image, queue_size=10)
+        self.publisher_ = rospy.Publisher('/camera', Image, queue_size=1)
         self.bridge = CvBridge()
 
         # Initialize class variables
