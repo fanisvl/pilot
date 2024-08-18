@@ -88,7 +88,7 @@ ros2 launch eufs_launcher eufs_launcher.launch.py
 
 # Common Erros
 
-#### 1. Authorization required, but no authorization protocol specified. This error usually occurs when trying to launch a GUI
+#### Authorization required, but no authorization protocol specified. This error usually occurs when trying to launch a GUI inside docker.
 ```
 Authorization required, but no authorization protocol specified
 could not connect to display :0
@@ -97,21 +97,14 @@ Available platform plugins are: eglfs, linuxfb, minimal, minimalegl, offscreen, 
 ```
 **Fix:** Run ```xhost +local:docker``` from a local terminal.
 
-#### 2. model.pt not found eg.
-```
-ros2 run vision stereo_cam_sub
-FileNotFoundError: [Errno 2] No such file or directory: 'model/yolov8s700.pt'
-```
-**Fix:** The ros2 run command should be ran from the autopilot/ directory.
-
-#### 3. ROS2 not found when launching the simulator
-```
-bash: ros2 command not found
-```
+#### bash: ros command not found
 **Fix:** ```source /opt/ros/$ROS_DISTRO/setup.bash```
 
-#### 4. Visual Studio Code when trying to write to mounted file:
+#### Visual Studio Code when trying to write to mounted file:
 ```
 Failed to save Insufficient permissions. Select 'Retry as Sudo' to retry as superuser.
 ```
 **Fix:** ```sudo chown -R $USER .```
+
+#### roscore eats all the RAM
+``` ulimit -Sn 524288 && ulimit -Hn 524288 ```
