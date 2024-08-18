@@ -11,15 +11,22 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from perception.msg import ConeEstimate, ConeEstimates
 
-colors = {
-    0: '#0000FF',
-    1: '#FFFF00',
-    2: '#FFA500',
-    3: '#FFA500',
+CLASS_COLORS_CV2 = {
+    0: (255, 0, 0),    # Blue  - #0000FF
+    1: (0, 255, 255),  # Yellow - #FFFF00
+    2: (0, 165, 255),  # Orange - #FFA500
+    3: (0, 165, 255),  # Orange - #FFA500
+}
+
+CLASS_COLORS_HEX = {
+    0: '#0000FF',  # Blue
+    1: '#FFFF00',  # Yellow
+    2: '#FFA500',  # Orange
+    3: '#FFA500',  # Orange (Note: Labels 2 and 3 use the same color)
 }
 
 class ConeEstimation:
-    def __init__(self, cone_detection_src, keypoint_regression_src):
+    def __init__(self, model_src, demo=False):
         rospy.init_node('cone_estimation')
         self.subscription = rospy.Subscriber(
             '/camera',
@@ -34,112 +41,85 @@ class ConeEstimation:
             queue_size=1
         )
         self.cv_bridge = CvBridge()
-        self.cone_detection_model = YOLO(cone_detection_src)
-        self.keypoint_regression_model = KeypointRegression(keypoint_regression_src)
+        self.model = YOLO(model_src)
+        self.demo = demo
         rospy.loginfo("ConeEstimation node initialized.")
 
-    def cone_estimation(self, image_msg, demo=False):
+    def cone_estimation(self, image_msg):
         """
         Demo includes image and plot visualization of keypoints and cone estimates.
 
-        > Full Img 
-        > Bounding Box Detection 
-        > Crop Cone Imgs to feed into keypoint regression model
-        > Keypoint Regression on Cropped Images (x,y output on cropped coordinates) 
-        > Translation to full image coordinates
+        > Image Input
+        > Bounding Box and Keypoint Regression done by YOLO model
         > PnP
         """
         print(f"Starting cone_estimation pipeline..")
         total_time_start = time.time()
-        full_image = self.cv_bridge.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
+        image = self.cv_bridge.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
 
-        cone_det_start = time.time()
-        result = self.cone_detection_model.predict(full_image)
-        cone_det_end = time.time()
-        bounding_boxes = result[0].boxes
+        results = self.model.predict(image)
+        results = results[0]
 
-        cone_estimates_msg = ConeEstimates()
-        cropped_cones = []
-
-        if len(bounding_boxes) <= 1:
+        if len(results.boxes) <= 1:
             rospy.loginfo("Waiting to detect at least 2 cones.")
             return
 
-        rospy.loginfo(f"{len(bounding_boxes)} cones detected.")
-        for id, box in enumerate(bounding_boxes):
-            label = box.cls.item()  # 2 = orange, 1 = yellow, 0 = blue
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            cropped_img = full_image[y1:y2, x1:x2]
-            cropped_cones.append(cropped_img)
+
+        cone_estimates_msg = ConeEstimates()
+        cone_estimates_msg.cones = []
+
+        for idx, cone_points in enumerate(results.keypoints.data):
+            rvec, tvec = PnP(cone_points)
             
-            cone_estimate_msg = ConeEstimate()
-            cone_estimate_msg.id = id
-            cone_estimate_msg.label = int(label)
-            cone_estimates_msg.cones.append(cone_estimate_msg)
-
-        keypoint_reg_start = time.time()
-        keypoints = self.keypoint_regression_model.eval(cropped_cones)
-        keypoint_reg_end = time.time()
-
-        keypoints_2d = {}
-
-        # Map 7 keypoints for each cone
-        for id, cone in enumerate(cone_estimates_msg.cones):
-            # The model output is 14 (x,y) coordinates => 7 keypoints
-            x1, y1, x2, y2 = map(int, bounding_boxes[id].xyxy[0])  # bounding box coordinates in full image
-            for point in range(0, len(keypoints[0]), 2):
-                cropped_height = y2 - y1
-                cropped_width = x2 - x1
-
-                cropped_x = int(keypoints[cone.id][point] / 100.0 * cropped_width)
-                cropped_y = int(keypoints[cone.id][point+1] / 100.0 * cropped_height)
-                
-                full_x = int(cropped_x + x1)
-                full_y = int(cropped_y + y1)
-
-                # Add to 2D keypoints map for PnP
-                keypoints_2d[point//2] = [full_x, full_y]
-                if demo:
-                    cv2.putText(full_image, str(cone.id), (x2, y2), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 1)
-                    cv2.circle(full_image, (full_x, full_y), 2, (0, 0, 255), -1)
-
-            # Estimate cone position with PnP using all the 2d keypoints for this cone
-            rvec, tvec = PnP(keypoints_2d)
+            # Magic
             tvec /= 1000
             tvec[2] /= 100
 
-            # 2D Coordinates for cone position in map
-            cone.x = tvec[0][0]
-            cone.y = tvec[2][0]
+            x, y = tvec[0][0], tvec[2][0]
+            
+            cone_estimate_msg = ConeEstimate()
+            cone_estimate_msg.id = idx 
+            cone_estimate_msg.label = int(results.boxes[idx].cls.item())
+            cone_estimate_msg.x = x
+            cone_estimate_msg.y = y
+            
+            cone_estimates_msg.cones.append(cone_estimate_msg)
 
-        total_time_end = time.time()
-        rospy.loginfo(f"Cone Detection Time: {cone_det_end-cone_det_start:.4}")
-        rospy.loginfo(f"Keypoint Regression Time: {keypoint_reg_end-keypoint_reg_start:.4}")
-        rospy.loginfo(f"Total Pipeline Time: {total_time_end-total_time_start:.4}")  
         self.publisher.publish(cone_estimates_msg)
 
-        if demo:
-            cv2.imshow("Keypoints", full_image)
+        total_time_end = time.time()
+        print(f"Total pipeline time: {total_time_end-total_time_start}")
+
+
+        if self.demo:
+            for box in results.boxes:
+                x1, y1, x2, y2 = box.xyxy.numpy()[0]
+                conf = box.conf.item()
+                class_id = int(box.cls.item())
+                print([x1, y1, x2, y2], conf, class_id)
+                cv2.rectangle(image, (int(x1),int(y1)), (int(x2),int(y2)), CLASS_COLORS_CV2[class_id], 1)
+            for cone in results.keypoints.data:
+                for (x,y) in cone:
+                    cv2.circle(image, (int(x),int(y)), 1, (0, 0, 255), 1)
+            cv2.imshow("img", image)
             cv2.waitKey(0)
-            plt.title("Estimated Cone Position Relative to Camera")
-            plt.scatter(0, 0, color='r', label='Camera')
-            plt.xlabel("X-axis")
-            plt.ylabel("Depth-axis")
+            cv2.destroyAllWindows()
+
+            # Plot cone map
+            plt.figure(figsize=(8, 6))
+            plt.scatter(0, 0, color='red', marker='x', s=100, label='Camera')
+            plt.xlabel('X-axis')
+            plt.ylabel('Y-axis')
+            plt.title('Scatter Plot of Cone Points')
             plt.legend()
             plt.grid(True)
-            plt.gca().set_aspect('equal', adjustable='box')
-            plt.axis('equal')
-            
-            for cone in cone_estimates_msg.cones:   
-                x = cone.x
-                y = cone.y
-                if cone.label in colors.keys():
-                    plt.scatter(x, y, color=colors[cone.label])
-                plt.annotate(f'{cone.id}', (x, y))
+
+            for cone in cone_estimates_msg.cones:
+                plt.scatter(cone.x, cone.y, color=CLASS_COLORS_HEX[cone.label], marker='o', s=100, edgecolor='black', label=f"{cone.label}")
 
             plt.show()
-            
 
 if __name__ == '__main__':
-    cone_estimation = ConeEstimation('/workspace/autopilot/src/perception/src/models/yolov8n-100e.pt', '/workspace/autopilot/src/perception/src/models/keypoint_regression.pth')
+    demo = False
+    cone_estimation = ConeEstimation('/workspace/autopilot/src/perception/src/models/yolo-nano.pt', demo)
     rospy.spin()  # Node is kept alive until killed with ctrl+c
