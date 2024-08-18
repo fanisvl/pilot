@@ -72,4 +72,4 @@ Failed to save Insufficient permissions. Select 'Retry as Sudo' to retry as supe
 **Fix:** ```sudo chown -R $USER .```
 
 #### roscore eats all the RAM
-``` ulimit -Sn 524288 && ulimit -Hn 524288 ```
+echo "ulimit -Sn 524288 && ulimit -Hn 524288" >> ~/.bashrc
