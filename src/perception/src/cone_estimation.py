@@ -8,8 +8,8 @@ from keypoint_regression.keypoint_regression_model import KeypointRegression
 from pnp_algorithm import PnP
 import rospy
 from sensor_msgs.msg import Image
+from messages.msg import ConeEstimates, ConeEstimate
 from cv_bridge import CvBridge
-from perception.msg import ConeEstimate, ConeEstimates
 
 CLASS_COLORS_CV2 = {
     0: (255, 0, 0),    # Blue  - #0000FF
