@@ -69,6 +69,7 @@ class ConeEstimation:
         cone_estimates_msg.cones = []
 
         for idx, cone_points in enumerate(results.keypoints.data):
+            cone_points = cone_points.cpu()
             rvec, tvec = PnP(cone_points)
             
             # Magic
@@ -93,7 +94,7 @@ class ConeEstimation:
 
         if self.demo:
             for box in results.boxes:
-                x1, y1, x2, y2 = box.xyxy.numpy()[0]
+                x1, y1, x2, y2 = box.xyxy.cpu().numpy()[0]
                 conf = box.conf.item()
                 class_id = int(box.cls.item())
                 print([x1, y1, x2, y2], conf, class_id)
