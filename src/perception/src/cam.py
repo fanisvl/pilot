@@ -32,7 +32,7 @@ def main():
         return
 
     # Set the loop rate
-    rate = rospy.Rate(10)# Hz
+    rate = rospy.Rate(30)# Hz
   
     while not rospy.is_shutdown():
         ret, frame = cap.read()
