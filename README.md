@@ -29,21 +29,20 @@ Before starting, run this command to make GUIs work inside a docker container:
   ```
 
 
-Jetson with GPU Support
+Jetson Nano
   ```
-  docker run -it \
-    --net=host \
-    --gpus all \
-    --ulimit nofile=1024:524288 \
-    --env="NVIDIA_DRIVER_CAPABILITIES=all" \
-    --env="DISPLAY" \
-    --env="QT_X11_NO_MITSHM=1" \
-    --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-    --device=/dev/video0:/dev/video0 \
-    --device=/dev/video0:/dev/video1 \
-    -v ~/workspace:/workspace \
-    fanisvl/ub20-py38-ros1noetic-pytorch:latest \
-    bash
+docker run -it --net=host --privileged  --runtime nvidia --gpus all \
+  --env="NVIDIA_DRIVER_CAPABILITIES=all" \
+  --env="DISPLAY=$DISPLAY" \
+  --env="QT_X11_NO_MITSHM=1" \
+  --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+  --volume "$HOME/.Xauthority:/root/.Xauthority:ro" \
+  --volume /tmp/argus_socket:/tmp/argus_socket \
+  --device=/dev/video0:/dev/video0 \
+  --device=/dev/video1:/dev/video1 \
+  -v ~/workspace/autopilot:/workspace/autopilot \
+  fanisvl/ub20-py38-ros1noetic-pytorch:latest \
+  bash
   ```
 
 3. Build ROS autopilot catkin workspace & packages - **inside workspace/autopilot**
