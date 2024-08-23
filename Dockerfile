@@ -90,8 +90,17 @@ RUN pip3 install --no-deps ultralytics
 # Install GStreamer for Camera
 RUN apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
 
+WORKDIR /workspace/gscam_ws/src
+RUN git fetch origin pull/61/head:pr-61-branch \
+    && git checkout pr-61-branch
+WORKDIR /worspace/gscam_ws
+RUN catkin_make
+
+
 WORKDIR /
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 RUN echo "source /workspace/autopilot/devel/setup.bash" >> ~/.bashrc
+RUN echo "source /workspace/gscam_ws/devel/setup.bash" >> ~/.bashrc
+ENV DISPLAY=:0
 # Entry point for the container
-ENTRYPOINT ["/bin/bash", "-c", "exec bash"]
+ENTRYPOINT ["/ bin/bash", "-c", "exec bash"]
