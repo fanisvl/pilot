@@ -19,6 +19,10 @@ RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt
 RUN apt-get update && apt-get install -y \
     ros-noetic-ros-base \
     ros-noetic-foxglove-bridge \
+    ros-noetic-cv-bridge \
+    ros-noetic-rqt-graph \
+    ros-noetic-rqt-plot \
+    ros-noetic-rqt-runtime-monitor \
     python3-rosdep \
     python3-rosinstall \
     python3-rosinstall-generator \
@@ -38,9 +42,12 @@ RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 
 # Install dependencies
 RUN apt-get update && \
-    apt-get install -y python3-pip libjpeg-dev zlib1g-dev libpython3-dev libavcodec-dev libavformat-dev libswscale-dev libopenblas-base libopenmpi-dev libomp-dev && \
+    apt-get install -y python3-pip python3.8-venv libjpeg-dev zlib1g-dev libpython3-dev libavcodec-dev libavformat-dev libswscale-dev libopenblas-base libopenmpi-dev libomp-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Virtual Environment
+
 
 RUN pip3 install future && \
     pip3 install -U --user wheel mock pillow && \
@@ -63,7 +70,7 @@ RUN gdown https://drive.google.com/uc?id=19UbYsKHhKnyeJ12VPUwcSvoxJaX7jQZ2 && \
 RUN pip3 install \
     gitpython>=3.1.30 \
     matplotlib>=3.3 \
-    numpy>=1.23.5 \
+    numpy>=1.23.5 --force \
     pillow>=10.3.0 \
     psutil \
     PyYAML>=5.3.1 \
@@ -80,8 +87,20 @@ RUN pip3 install \
 
 RUN pip3 install --no-deps ultralytics
 
+# Install GStreamer for Camera
+RUN apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
+
+WORKDIR /workspace/gscam_ws/src
+RUN git fetch origin pull/61/head:pr-61-branch \
+    && git checkout pr-61-branch
+WORKDIR /worspace/gscam_ws
+RUN catkin_make
+
+
 WORKDIR /
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
-RUN echo "source /workspace/autopilot/install/setup.bash" >> ~/.bashrc
+RUN echo "source /workspace/autopilot/devel/setup.bash" >> ~/.bashrc
+RUN echo "source /workspace/gscam_ws/devel/setup.bash" >> ~/.bashrc
+ENV DISPLAY=:0
 # Entry point for the container
-ENTRYPOINT ["/bin/bash", "-c", "exec bash"]
+ENTRYPOINT ["/ bin/bash", "-c", "exec bash"]
