@@ -1,0 +1,11 @@
+<launch>
+
+    <node pkg="perception" type="cone_est.py" name="cone_estimation_node" output="screen"/>
+
+    <node pkg="planning" type="planning.py" name="planning_node" output="screen"/>
+
+    <node pkg="control" type="control.py" name="control_node" output="screen"/>
+
+    <include file="$(find sensors)/launch/stereo.launch"/>
+</launch>
+

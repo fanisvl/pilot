@@ -20,8 +20,12 @@ class PathPlanningNode:
         self.TRACK_WIDTH = 3
 
     def cone_estimates_callback(self, cone_estimates_msg):
-        
-        cone_estimates = cone_estimates_msg.cones
+
+        cone_estimates = [(cone.x, cone.y) for cone in cone_estimates_msg.cones]
+
+        if len(cone_estimates) < 3:
+            print(f"Planning: Need at least 3 points (Delaunay), only have {len(cone_estimates)}.")
+            return
 
         centerline_points = self.path_planning(cone_estimates)
 
@@ -33,61 +37,72 @@ class PathPlanningNode:
         INPUT: Cone Estimates
         OUTPUT: Centerline Path Points
         """
-        points = [(cone.x, cone.y) for cone in cone_estimates]
-        points_of_interest = self.remove_background_points(points)
+aueb@aueb:~/workspace/autopilot/src/planning/src$ ls
+planning.py
+aueb@aueb:~/workspace/autopilot/src/planning/src$ cat planning.py 
+#!/usr/bin/python3
 
-        filtered_cone_estimates = [cone for cone in cone_estimates if (cone.x, cone.y) in points_of_interest]
+import rospy
+import json
+import math
+import numpy as np
+from scipy.spatial import Delaunay
+from sklearn.cluster import DBSCAN
+from std_msgs.msg import Float64
+from messages.msg import ConeEstimates, CenterLinePoints, Point
 
-        left_points = []
-        right_points = []
-        for cone in filtered_cone_estimates:
-            point = (cone.x, cone.y)
-            if cone.label == 0:
-                left_points.append(point)
-            elif cone.label == 1:
-                right_points.append(point)
+class PathPlanningNode:
+    def __init__(self):
+        rospy.init_node('path_planning_node')
 
-        if len(left_points) < 2 and len(right_points) < 2:
-            print("Not left and right points to calculate")
-            print(f"left points: {len(left_points)}, right_points: {len(right_points)}")
+        # Initialize Publisher and Subscriber
+        self.centerline_pub = rospy.Publisher('/centerline_points', CenterLinePoints, queue_size=1)
+        self.cone_estimates_sub = rospy.Subscriber('/cone_estimates', ConeEstimates, self.cone_estimates_callback)
+
+        self.TRACK_WIDTH = 3
+
+    def cone_estimates_callback(self, cone_estimates_msg):
+        
+        cone_estimates = [(cone.x, cone.y) for cone in cone_estimates_msg.cones]
+
+        if len(cone_estimates) < 3:
+            print(f"Planning: Need at least 3 points (Delaunay), only have {len(cone_estimates)}.")
             return
 
-        if len(left_points) == 0:
-            left_points = self.find_virtual_points(right_points, "left_empty")
-        elif len(right_points) == 0:
-            right_points = self.find_virtual_points(left_points, "right_empty")
+        centerline_points = self.path_planning(cone_estimates)
+
+        self.centerline_pub.publish(centerline_points)
 
 
-        centerline_points = self.find_midpoints(left_points, right_points)
+    def path_planning(self, cone_estimates):
+        """
+        INPUT: Cone Estimates
+        OUTPUT: Centerline Path Points
+        """
+        #points_of_interest = self.remove_background_points(cone_estimates)
+
+        #filtered_cone_estimates = [cone for cone in cone_estimates if (cone.x, cone.y) in points_of_interest]
+
+        centerline_points = self.find_midpoints(cone_estimates)
         return centerline_points
 
-    def find_midpoints(self, left_points, right_points):
-        
+    def find_midpoints(self, points):
         centerline_msg = CenterLinePoints()
         centerline_points = centerline_msg.centerline
 
-        points = left_points + right_points
         points_array = np.array(points)
+        
         triangulation = Delaunay(points_array)
-
-        left_points_set = set(map(tuple, left_points))
-        right_points_set = set(map(tuple, right_points))
 
         for simplex in triangulation.simplices:
             p1 = points_array[simplex[0]]
             p2 = points_array[simplex[1]]
             p3 = points_array[simplex[2]]
 
-            p1_tuple = tuple(p1)
-            p2_tuple = tuple(p2)
-            p3_tuple = tuple(p3)
-
-            edges = [(p1_tuple, p2_tuple), (p2_tuple, p3_tuple), (p3_tuple, p1_tuple)]
+            edges = [(p1, p2), (p2, p3), (p3, p1)]
             for (v1, v2) in edges:
-                if (v1 in left_points_set and v2 in right_points_set) or (v1 in right_points_set and v2 in left_points_set):
-                    midpoint = Point(x=(v1[0] + v2[0]) / 2, y=(v1[1] + v2[1]) / 2)
-                    centerline_points.append(midpoint)
-
+                midpoint = Point(x=(v1[0] + v2[0]) / 2, y=(v1[1] + v2[1]) / 2)
+                centerline_points.append(midpoint)
         return centerline_points
 
     def interpolate_to_circle(self, center, radius, inner_point, outer_point):

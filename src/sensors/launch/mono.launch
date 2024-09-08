@@ -1,11 +1,11 @@
 <launch>
     <arg name="camera_name" default="stereo" />
     <arg name="sensor_id"   default="0" />
-    <arg name="sensor_mode" default="3" />
-    <arg name="framerate"   default="30" />
-    <arg name="flip_method" default="2" />
-    <arg name="width"       default="1280" />
-    <arg name="height"      default="720" />
+    <arg name="sensor_mode" default="5" />
+    <arg name="framerate"   default="120" />
+    <arg name="flip_method" default="0" />
+    <arg name="width"       default="640" />
+    <arg name="height"      default="480" />
 
     <node pkg="nodelet" type="nodelet" name="$(arg camera_name)_nodelet_manager" args="manager" output="screen" />
 
