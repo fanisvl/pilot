@@ -1,11 +1,17 @@
 #!/usr/bin/python3
 import rospy
+
+from jetson_inference import detectNet
+from jetson_utils import cudaFromNumpy, cudaToNumpy
+
 import cv2
-from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
+
+from sensor_msgs.msg import Image
+from vision_msgs.msg import Detection2DArray, Detection2D, ObjectHypothesisWithPose, VisionInfo
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 from messages.msg import ConeEstimates, ConeEstimate
-from ultralytics import YOLO
+
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -76,17 +82,18 @@ T = np.array([
 
 class ConeEstimation:
     def __init__(self):
-
-
-        # Load the YOLO model
-        model_src = '/workspace/autopilot/src/perception/src/models/yolov8n-V2.pt'
-        self.cone_detection_model = YOLO(model_src)
+        net = detectNet(
+            model="/workspace/pilot/src/perception/src/models/mobilenet/mobilenet.onnx",
+            labels="/workspace/pilot/src/perception/src/models/mobilenet/labels.txt",
+            input_blob="input_0",
+            output_cvg="scores",
+            output_bbox="boxes",
+            threshold=0.5
+        )
         rospy.loginfo("Model loaded.")
-
         rospy.init_node('cone_estimation')
 
         self.bridge = CvBridge()
-
         # Define subscribers for left and right images
         self.left_sub = Subscriber('/stereo/left/image_raw', Image)
         self.right_sub = Subscriber('/stereo/right/image_raw', Image)
@@ -109,13 +116,22 @@ class ConeEstimation:
         cone_estimates_msg = ConeEstimates()
         cone_estimates_msg.cones = []
 
-        results = self.cone_detection_model.predict(left_frame)
-        results = results[0]
+        detections = self.net.Detect(left_frame)
 
-        for idx, box in enumerate(results.boxes):
-            x1, y1, x2, y2 = box.xyxy.cpu().numpy()[0]
-            bbox_left = (x1, y1, x2 - x1, y2 - y1)  # x, y, w, h
-            bbox_left = tuple(int(x) for x in bbox_left)
+        if not detections:
+            print("No cone detections.")
+            return
+
+        for id, detection in enumerate(detections):
+
+            width = int(detection.Width)
+            height = int(detection.Height)
+            center_x = detection.Center[0]
+            center_y = detection.Center[1]
+            x = int(center_x - width / 2)
+            y = int(center_y - height / 2)
+
+            bbox_left = (x, y, width, height)
 
             bbox_right = self.bounding_box_propagation(bbox_left, left_frame, right_frame)
 
@@ -144,8 +160,7 @@ class ConeEstimation:
 
             # Append the result to cones list
             cone_estimate_msg = ConeEstimate()
-            cone_estimate_msg.id = idx
-            cone_estimate_msg.label = int(results.boxes[idx].cls.item())
+            cone_estimate_msg.id = id
             cone_estimate_msg.x = points_3d_filtered[0]
             cone_estimate_msg.y = points_3d_filtered[2]
             cone_estimates_msg.cones.append(cone_estimate_msg)
