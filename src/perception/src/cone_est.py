@@ -13,7 +13,6 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 from messages.msg import ConeEstimates, ConeEstimate
 
 import numpy as np
-import matplotlib.pyplot as plt
 import time
 
 COLORS_CV2 = {
@@ -82,7 +81,7 @@ T = np.array([
 
 class ConeEstimation:
     def __init__(self):
-        net = detectNet(
+        self.net = detectNet(
             model="/workspace/pilot/src/perception/src/models/mobilenet/mobilenet.onnx",
             labels="/workspace/pilot/src/perception/src/models/mobilenet/labels.txt",
             input_blob="input_0",
@@ -95,8 +94,8 @@ class ConeEstimation:
 
         self.bridge = CvBridge()
         # Define subscribers for left and right images
-        self.left_sub = Subscriber('/stereo/left/image_raw', Image)
-        self.right_sub = Subscriber('/stereo/right/image_raw', Image)
+        self.left_sub = Subscriber('/left_cam/raw', Image)
+        self.right_sub = Subscriber('/right_cam/raw', Image)
 
         # Define publisher for cone estimates
         self.cone_pub = rospy.Publisher('/cone_estimates', ConeEstimates, queue_size=1)
@@ -116,7 +115,8 @@ class ConeEstimation:
         cone_estimates_msg = ConeEstimates()
         cone_estimates_msg.cones = []
 
-        detections = self.net.Detect(left_frame)
+        cuda_img = cudaFromNumpy(left_frame)
+        detections = self.net.Detect(cuda_img)
 
         if not detections:
             print("No cone detections.")
@@ -176,7 +176,7 @@ class ConeEstimation:
         tracker.init(left_frame, bbox)
         success, new_bbox = tracker.update(right_frame)
         if success:
-            return new_bbox  # format: (x, y, w, h)
+            return tuple(int(x) for x in new_bbox)  # format: (x, y, w, h)
         rospy.logerr("Error Tracking Bounding Box to right frame")
         return None
 

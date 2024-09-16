@@ -1,11 +1,19 @@
 <launch>
 
-    <node pkg="perception" type="cone_est.py" name="cone_estimation_node" output="screen"/>
+    <include file="$(find ros_deep_learning)/launch/video_source.ros1.launch">
+        <arg name="input" value="csi://1" />
+        <arg name="node_name" value="left_cam" />
+    </include>
 
-    <node pkg="planning" type="planning.py" name="planning_node" output="screen"/>
 
-    <node pkg="control" type="control.py" name="control_node" output="screen"/>
+    <include file="$(find ros_deep_learning)/launch/video_source.ros1.launch">
+        <arg name="input" value="csi://0" />
+        <arg name="node_name" value="right_cam" />
+    </include>
 
-    <include file="$(find sensors)/launch/stereo.launch"/>
+
+    <node pkg="perception" type="cone_est.py" name="cone_est" output="screen">
+    </node>
+
+
 </launch>
-
