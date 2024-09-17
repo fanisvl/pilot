@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>operations</name>
+  <name>operation</name>
   <version>0.0.0</version>
-  <description>The operations package</description>
+  <description>The operation package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
