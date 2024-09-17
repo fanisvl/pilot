@@ -102,7 +102,7 @@ class ConeEstimation:
         self.benchmark_interval = 10 #sec
         self.last_benchmark_time = time.time()
 
-        self.visualize = True
+        self.visualize = False
 
     def cone_estimation(self, left_msg, right_msg):
         start_time = time.time()
@@ -198,7 +198,7 @@ class ConeEstimation:
         total_pipeline_time = total_time_end - start_time
         self.total_time.append(total_pipeline_time)
 
-        rospy.loginfo(f"Total Pipeline Time: {total_pipeline_time:.4f} s ({1/total_pipeline_time:.2f} Hz)")
+        rospy.loginfo(f"Total Pipeline Time: {total_pipeline_time:.4f} s ({1/total_pipeline_time:.2f} Hz) - {len(cone_estimates_msg.cones)} cones")
 
         if self.visualize:
             self.visualize_cone_estimates(cone_estimates_msg)
@@ -330,6 +330,14 @@ class ConeEstimation:
         print_avg_time("Feature Matching", self.match_time)
         print_avg_time("Triangulation", self.triangulate_time)
         print_avg_time("Total Pipeline", self.total_time)
+
+        self.detect_time.clear()
+        self.bbox_time.clear()
+        self.sift_time.clear()
+        self.match_time.clear()
+        self.triangulate_time.clear()
+        self.total_time.clear()
+
 
 if __name__ == '__main__':
     node = ConeEstimation()
