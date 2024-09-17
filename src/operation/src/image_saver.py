@@ -10,8 +10,8 @@ class ImageSaver:
     def __init__(self, interval, save_dir):
         rospy.init_node('image_saver', anonymous=True)
         self.bridge = CvBridge()
-        self.left_image_sub = rospy.Subscriber('stereo/left/image_raw', Image, self.left_image_callback)
-        self.right_image_sub = rospy.Subscriber('stereo/right/image_raw', Image, self.right_image_callback)
+        self.left_image_sub = rospy.Subscriber('left_cam/raw', Image, self.left_image_callback)
+        self.right_image_sub = rospy.Subscriber('right_cam/raw', Image, self.right_image_callback)
         self.left_image_received = False
         self.right_image_received = False
         self.left_image = None
@@ -37,9 +37,9 @@ class ImageSaver:
     def save_images_timer(self, event):
         if self.left_image_received and self.right_image_received:
             self.image_count += 1
-            cv2.imwrite(f'{self.save_dir}/left_image_{self.image_count}.png', self.left_image)
-            cv2.imwrite(f"{self.save_dir}/right_image_{self.image_count}.png", self.right_image)
-            rospy.loginfo(f'Saved images: left_image_{self.image_count}.png, right_image_{self.image_count}.png')
+            cv2.imwrite(f'{self.save_dir}/left_{self.image_count}.png', self.left_image)
+            cv2.imwrite(f"{self.save_dir}/right_{self.image_count}.png", self.right_image)
+            rospy.loginfo(f'Saved images: left_{self.image_count}.png, right_{self.image_count}.png')
             self.left_image_received = False
             self.right_image_received = False
 
