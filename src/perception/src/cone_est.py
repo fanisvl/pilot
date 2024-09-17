@@ -94,8 +94,6 @@ class ConeEstimation:
         self.detect_time = []
         self.bbox_time = []
         self.sift_time = []
-        self.match_time = []
-        self.triangulate_time = []
         self.total_time = []
 
         # benchmark parameters
@@ -146,10 +144,7 @@ class ConeEstimation:
             self.sift_time.append(sift_end - sift_start)
 
             # SIFT Feature matching
-            match_start = time.time()
             good_matches = self.match_features(descriptors_left, descriptors_right)
-            match_end = time.time()
-            self.match_time.append(match_end - match_start)
 
             if good_matches is None:
                 continue
@@ -163,14 +158,11 @@ class ConeEstimation:
                 self.visualize_sift_matches(left_frame, right_frame, keypoints_left, keypoints_right, good_matches)
 
             # Triangulation
-            triangulate_start = time.time()
             pts1 = np.float32([keypoints_left[m.queryIdx].pt for m in good_matches])
             pts2 = np.float32([keypoints_right[m.trainIdx].pt for m in good_matches])
             if len(pts1) < 1 or len(pts2) < 1:
                 continue
             points_3d = self.triangulate_points(pts1, pts2)
-            triangulate_end = time.time()
-            self.triangulate_time.append(triangulate_end - triangulate_start)
 
             
             # Remove outliers
@@ -327,15 +319,11 @@ class ConeEstimation:
         print_avg_time("Detection", self.detect_time)
         print_avg_time("Bounding Box Propagation", self.bbox_time)
         print_avg_time("SIFT Feature Extraction", self.sift_time)
-        print_avg_time("Feature Matching", self.match_time)
-        print_avg_time("Triangulation", self.triangulate_time)
         print_avg_time("Total Pipeline", self.total_time)
 
         self.detect_time.clear()
         self.bbox_time.clear()
         self.sift_time.clear()
-        self.match_time.clear()
-        self.triangulate_time.clear()
         self.total_time.clear()
 
 
