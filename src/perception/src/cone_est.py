@@ -13,7 +13,6 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 from messages.msg import ConeEstimates, ConeEstimate
 
 import numpy as np
-import matplotlib.pyplot as plt
 import time
 
 COLORS_CV2 = {
@@ -82,7 +81,7 @@ T = np.array([
 
 class ConeEstimation:
     def __init__(self):
-        net = detectNet(
+        self.net = detectNet(
             model="/workspace/pilot/src/perception/src/models/mobilenet/mobilenet.onnx",
             labels="/workspace/pilot/src/perception/src/models/mobilenet/labels.txt",
             input_blob="input_0",
@@ -95,8 +94,8 @@ class ConeEstimation:
 
         self.bridge = CvBridge()
         # Define subscribers for left and right images
-        self.left_sub = Subscriber('/stereo/left/image_raw', Image)
-        self.right_sub = Subscriber('/stereo/right/image_raw', Image)
+        self.left_sub = Subscriber('/left_cam/raw', Image)
+        self.right_sub = Subscriber('/right_cam/raw', Image)
 
         # Define publisher for cone estimates
         self.cone_pub = rospy.Publisher('/cone_estimates', ConeEstimates, queue_size=1)
@@ -105,10 +104,21 @@ class ConeEstimation:
         self.time_sync = ApproximateTimeSynchronizer([self.left_sub, self.right_sub], queue_size=1, slop=0.1)
         self.time_sync.registerCallback(self.cone_estimation)
 
+        # benchmark
+        self.detect_time = []
+        self.bbox_time = []
+        self.sift_time = []
+        self.match_time = []
+        self.triangulate_time = []
+        self.output_time = []
+        self.total_time = []
+
+        # benchmark parameters
+        self.benchmark_interval = 10 # sec
+        self.last_benchmark_time = time.time()
 
     def cone_estimation(self, left_msg, right_msg):
-        
-        total_time_start = time.time()
+        start_time = time.time()
 
         left_frame = self.bridge.imgmsg_to_cv2(left_msg, desired_encoding='bgr8')
         right_frame = self.bridge.imgmsg_to_cv2(right_msg, desired_encoding='bgr8')
@@ -116,41 +126,56 @@ class ConeEstimation:
         cone_estimates_msg = ConeEstimates()
         cone_estimates_msg.cones = []
 
-        detections = self.net.Detect(left_frame)
+        # Measure detection time
+        detect_start = time.time()
+        cuda_img = cudaFromNumpy(left_frame)
+        detections = self.net.Detect(cuda_img)
+        detect_end = time.time()
+        self.detect_time.append(detect_end - detect_start)
 
         if not detections:
             print("No cone detections.")
             return
 
         for id, detection in enumerate(detections):
-
-            width = int(detection.Width)
-            height = int(detection.Height)
-            center_x = detection.Center[0]
-            center_y = detection.Center[1]
-            x = int(center_x - width / 2)
-            y = int(center_y - height / 2)
-
-            bbox_left = (x, y, width, height)
-
+            # Measure bounding box propagation time
+            bbox_start = time.time()
+            bbox_left = (int(detection.Center[0] - detection.Width / 2),
+                         int(detection.Center[1] - detection.Height / 2),
+                         int(detection.Width),
+                         int(detection.Height))
             bbox_right = self.bounding_box_propagation(bbox_left, left_frame, right_frame)
+            bbox_end = time.time()
+            self.bbox_time.append(bbox_end - bbox_start)
 
-            # Extract SIFT features for triangulation
+            if bbox_right is None:
+                continue
+
+            # Measure SIFT feature extraction time
+            sift_start = time.time()
             keypoints_left, descriptors_left = self.extract_sift_features(left_frame, bbox_left)
             keypoints_right, descriptors_right = self.extract_sift_features(right_frame, bbox_right)
+            sift_end = time.time()
+            self.sift_time.append(sift_end - sift_start)
 
+            # Measure feature matching time
+            match_start = time.time()
             good_matches = self.match_features(descriptors_left, descriptors_right)
+            match_end = time.time()
+            self.match_time.append(match_end - match_start)
+
             if good_matches is None:
                 continue
 
-            # Matched points
+            # Measure triangulation time
+            triangulate_start = time.time()
             pts1 = np.float32([keypoints_left[m.queryIdx].pt for m in good_matches])
             pts2 = np.float32([keypoints_right[m.trainIdx].pt for m in good_matches])
-
-            # Triangulate points
             if len(pts1) < 1 or len(pts2) < 1:
                 continue
             points_3d = self.triangulate_points(pts1, pts2)
+            triangulate_end = time.time()
+            self.triangulate_time.append(triangulate_end - triangulate_start)
 
             # Apply median filtering to 3D points
             points_3d_filtered = np.median(points_3d, axis=0)
@@ -165,18 +190,30 @@ class ConeEstimation:
             cone_estimate_msg.y = points_3d_filtered[2]
             cone_estimates_msg.cones.append(cone_estimate_msg)
 
-        total_time_end = time.time()
-        rospy.loginfo(f"Total Pipeline Time: {total_time_end - total_time_start:.4f}")
-
+        # Measure final output time
+        output_start = time.time()
         self.cone_pub.publish(cone_estimates_msg)
+        output_end = time.time()
+        self.output_time.append(output_end - output_start)
 
+        total_time_end = time.time()
+        total_pipeline_time = total_time_end - start_time
+        self.total_time.append(total_pipeline_time)
+
+        rospy.loginfo(f"Total Pipeline Time: {total_pipeline_time:.4f} s ({1/total_pipeline_time:.2f} Hz)")
+
+        # Benchmarking
+        current_time = time.time()
+        if current_time - self.last_benchmark_time >= self.benchmark_interval:
+            self.print_benchmark_info()
+            self.last_benchmark_time = current_time
 
     def bounding_box_propagation(self, bbox, left_frame, right_frame):
         tracker = cv2.TrackerCSRT_create()
         tracker.init(left_frame, bbox)
         success, new_bbox = tracker.update(right_frame)
         if success:
-            return new_bbox  # format: (x, y, w, h)
+            return tuple(int(x) for x in new_bbox)  # format: (x, y, w, h)
         rospy.logerr("Error Tracking Bounding Box to right frame")
         return None
 
@@ -211,7 +248,6 @@ class ConeEstimation:
 
     def triangulate_points(self, pts1, pts2):
         projMatrix1 = np.dot(LEFT_INTR, np.hstack((np.eye(3), np.zeros((3, 1)))))
-        projMatrix1 = np.dot(LEFT_INTR, np.hstack((np.eye(3), np.zeros((3, 1)))))
         projMatrix2 = np.dot(RIGHT_INTR, np.hstack((R, T)))
 
         pts1 = pts1.T
@@ -222,6 +258,21 @@ class ConeEstimation:
         points3D = points4D[:3, :] / points4D[3, :]
 
         return points3D.T
+
+    def print_benchmark_info(self):
+        def print_avg_time(name, times):
+            if times:
+                avg_time = np.mean(times)
+                print(f"Average {name} Time: {avg_time:.4f} s ({1/avg_time:.2f} Hz)")
+
+        print("Benchmark Information:")
+        print_avg_time("Detection", self.detect_time)
+        print_avg_time("Bounding Box Propagation", self.bbox_time)
+        print_avg_time("SIFT Feature Extraction", self.sift_time)
+        print_avg_time("Feature Matching", self.match_time)
+        print_avg_time("Triangulation", self.triangulate_time)
+        print_avg_time("Output Publishing", self.output_time)
+        print_avg_time("Total Pipeline", self.total_time)
 
 if __name__ == '__main__':
     node = ConeEstimation()
