@@ -13,22 +13,9 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 from messages.msg import ConeEstimates, ConeEstimate
 
 import numpy as np
+from scipy import stats
 import matplotlib.pyplot as plt
 import time
-
-COLORS_CV2 = {
-    0: (255, 0, 0),    # Blue  - #0000FF
-    1: (0, 255, 255),  # Yellow - #FFFF00
-    2: (0, 165, 255),  # Orange - #FFA500
-    3: (0, 165, 255),  # Orange - #FFA500
-}
-
-COLORS_HEX = {
-    0: '#0000FF',
-    1: '#FFFF00',
-    2: '#FFA500',
-    3: '#FFA500',
-}
 
 CONE_3D_POINTS = np.array([
     [-65.0, 0.0, 0.0],
@@ -42,42 +29,40 @@ CONE_3D_POINTS = np.array([
 
 # Left Camera Intrinsic Matrix
 LEFT_INTR = np.array([
-    [915.65548816,   0.,         689.70140921],
-    [  0.,         685.54019452, 365.50765549],
-    [  0.,           0.,           1.        ]
+    [1122.426162, 0.000000, 598.503499],
+    [0.000000, 1121.925556, 365.915575],
+    [0.000000, 0.000000, 1.000000]
 ], dtype=np.float32)
-
 
 # Left Camera Distortion Coefficients
 LEFT_DIST = np.array([
-    [-0.03668314,  0.24291992,  0.00226458,  0.00444546, -0.30489909]
+    -0.058484, 0.512610, 0.000971, -0.000261, -1.056148
 ], dtype=np.float32)
 
 # Right Camera Intrinsic Matrix
 RIGHT_INTR = np.array([
-    [846.175412,   0.,         670.2238759 ],
-    [  0.,       633.75634756, 342.02144716],
-    [  0.,         0.,           1.        ]
+    [1120.255791, 0.000000, 579.629778],
+    [0.000000, 1118.852221, 357.675228],
+    [0.000000, 0.000000, 1.000000]
 ], dtype=np.float32)
-
 
 # Right Camera Distortion Coefficients
 RIGHT_DIST = np.array([
-    [ 0.00796533, -0.02163974, -0.00371325,  0.00139172, -0.0067765 ]
+    -0.098465, 0.442262, -0.001005, -0.002640, -0.642019
 ], dtype=np.float32)
 
-# Rotation Matrix between Cameras
+# Rotation Matrix
 R = np.array([
-    [ 0.99706868, -0.00724228,  0.07616824],
-    [-0.00185945,  0.99292238,  0.11875055],
-    [-0.07648917, -0.11854409,  0.98999834]
+    [0.999625, -0.008677, -0.025983],
+    [0.008992, 0.999887, 0.012057],
+    [0.025876, -0.012286, 0.999590]
 ], dtype=np.float32)
 
-# Translation Vector between Cameras
+# Translation Vector
 T = np.array([
-    [79.10517262],
-    [5.55096856],
-    [52.61707659]
+    [63.697536],
+    [-4.602118],
+    [8.842539]
 ], dtype=np.float32)
 
 class ConeEstimation:
@@ -170,6 +155,7 @@ class ConeEstimation:
                 continue
             
             if self.visualize:
+                print(f"id: {id}")
                 self.visualize_frames(left_frame, right_frame)
                 self.visualize_bounding_box(left_frame, bbox_left, "Detected Left Bounding Box")
                 self.visualize_bounding_box(right_frame, bbox_right, "Propagated Right Bounding Box")
@@ -186,18 +172,25 @@ class ConeEstimation:
             triangulate_end = time.time()
             self.triangulate_time.append(triangulate_end - triangulate_start)
 
-            # Apply median filtering to 3D points
-            points_3d_filtered = np.median(points_3d, axis=0)
-            points_3d_filtered[2] = abs(points_3d_filtered[2])  # Positive depth Z
-            points_3d_filtered[0] = -points_3d_filtered[0]  # Flip sign on X
-            points_3d_filtered /= 10  # Scale to cm
+            
+            # Remove outliers
+            z_scores = np.abs(stats.zscore(points_3d, axis=0))
+            threshold = 3 # 3 standard deviations from the mean
+            filtered_points = points_3d[(z_scores < threshold).all(axis=1)]
+
+            # Calculate the median of the filtered points
+            median_points = np.median(filtered_points, axis=0)
+            median_points[0] = -median_points[0]  # Flip sign on X
+            median_points /= 10  # Scale to cm
+
 
             # Append the result to cones list
             cone_estimate_msg = ConeEstimate()
             cone_estimate_msg.id = id
-            cone_estimate_msg.x = points_3d_filtered[0]
-            cone_estimate_msg.y = points_3d_filtered[2]
+            cone_estimate_msg.x = median_points[0]
+            cone_estimate_msg.y = median_points[2]
             cone_estimates_msg.cones.append(cone_estimate_msg)
+
 
         self.cone_pub.publish(cone_estimates_msg)
 
@@ -218,7 +211,7 @@ class ConeEstimation:
             self.last_benchmark_time = current_time
 
     def bounding_box_propagation(self, bbox, left_frame, right_frame):
-        tracker = cv2.TrackerKCF_create()
+        tracker = cv2.TrackerCSRT_create()
         tracker.init(left_frame, bbox)
         success, new_bbox = tracker.update(right_frame)
         if success:
@@ -308,14 +301,18 @@ class ConeEstimation:
 
     def visualize_cone_estimates(self, cone_estimates_msg):
         """Plot the cone estimates in a 2D plot."""
-        xs = [cone.x for cone in cone_estimates_msg.cones]
-        ys = [cone.y for cone in cone_estimates_msg.cones]
 
         plt.figure(figsize=(6, 6))
-        plt.scatter(xs, ys, c='orange', label="Cone Estimates")
+        xs = [cone.x for cone in cone_estimates_msg.cones]
+        ys = [cone.y for cone in cone_estimates_msg.cones]
+        for cone in cone_estimates_msg.cones:
+            plt.scatter(cone.x, cone.y, c='orange')
+            plt.text(cone.x, cone.y+3, f'{cone.id}: ({cone.x:.2f}, {cone.y:.2f})', fontsize=9, ha='right')
+
+        plt.scatter(0, 0, c='red', marker='x')
         plt.xlabel("X (cm)")
-        plt.ylabel("Y (cm)")
-        plt.title("Cone Estimates in 2D")
+        plt.ylabel("Z (cm)")
+        plt.title("Cone Estimation Map")
         plt.legend()
         plt.grid(True)
         plt.show()
