@@ -13,6 +13,7 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 from messages.msg import ConeEstimates, ConeEstimate
 
 import numpy as np
+import matplotlib.pyplot as plt
 import time
 
 COLORS_CV2 = {
@@ -110,12 +111,13 @@ class ConeEstimation:
         self.sift_time = []
         self.match_time = []
         self.triangulate_time = []
-        self.output_time = []
         self.total_time = []
 
         # benchmark parameters
-        self.benchmark_interval = 10 # sec
+        self.benchmark_interval = 10 #sec
         self.last_benchmark_time = time.time()
+
+        self.visualize = True
 
     def cone_estimation(self, left_msg, right_msg):
         start_time = time.time()
@@ -138,7 +140,7 @@ class ConeEstimation:
             return
 
         for id, detection in enumerate(detections):
-            # Measure bounding box propagation time
+            # Bounding Box Propagation
             bbox_start = time.time()
             bbox_left = (int(detection.Center[0] - detection.Width / 2),
                          int(detection.Center[1] - detection.Height / 2),
@@ -151,14 +153,14 @@ class ConeEstimation:
             if bbox_right is None:
                 continue
 
-            # Measure SIFT feature extraction time
+            # SIFT Feature Extraction
             sift_start = time.time()
             keypoints_left, descriptors_left = self.extract_sift_features(left_frame, bbox_left)
             keypoints_right, descriptors_right = self.extract_sift_features(right_frame, bbox_right)
             sift_end = time.time()
             self.sift_time.append(sift_end - sift_start)
 
-            # Measure feature matching time
+            # SIFT Feature matching
             match_start = time.time()
             good_matches = self.match_features(descriptors_left, descriptors_right)
             match_end = time.time()
@@ -166,8 +168,15 @@ class ConeEstimation:
 
             if good_matches is None:
                 continue
+            
+            if self.visualize:
+                self.visualize_frames(left_frame, right_frame)
+                self.visualize_bounding_box(left_frame, bbox_left, "Detected Left Bounding Box")
+                self.visualize_bounding_box(right_frame, bbox_right, "Propagated Right Bounding Box")
+                self.visualize_sift_features(left_frame, right_frame, keypoints_left, keypoints_right)
+                self.visualize_sift_matches(left_frame, right_frame, keypoints_left, keypoints_right, good_matches)
 
-            # Measure triangulation time
+            # Triangulation
             triangulate_start = time.time()
             pts1 = np.float32([keypoints_left[m.queryIdx].pt for m in good_matches])
             pts2 = np.float32([keypoints_right[m.trainIdx].pt for m in good_matches])
@@ -190,11 +199,7 @@ class ConeEstimation:
             cone_estimate_msg.y = points_3d_filtered[2]
             cone_estimates_msg.cones.append(cone_estimate_msg)
 
-        # Measure final output time
-        output_start = time.time()
         self.cone_pub.publish(cone_estimates_msg)
-        output_end = time.time()
-        self.output_time.append(output_end - output_start)
 
         total_time_end = time.time()
         total_pipeline_time = total_time_end - start_time
@@ -202,6 +207,10 @@ class ConeEstimation:
 
         rospy.loginfo(f"Total Pipeline Time: {total_pipeline_time:.4f} s ({1/total_pipeline_time:.2f} Hz)")
 
+        if self.visualize:
+            self.visualize_cone_estimates(cone_estimates_msg)
+            rospy.signal_shutdown("Shutting down after one run.")
+            
         # Benchmarking
         current_time = time.time()
         if current_time - self.last_benchmark_time >= self.benchmark_interval:
@@ -209,7 +218,7 @@ class ConeEstimation:
             self.last_benchmark_time = current_time
 
     def bounding_box_propagation(self, bbox, left_frame, right_frame):
-        tracker = cv2.TrackerCSRT_create()
+        tracker = cv2.TrackerKCF_create()
         tracker.init(left_frame, bbox)
         success, new_bbox = tracker.update(right_frame)
         if success:
@@ -259,6 +268,58 @@ class ConeEstimation:
 
         return points3D.T
 
+    def visualize_frames(self, left_frame, right_frame):
+        """Visualize the left and right camera frames."""
+        cv2.imshow("Left Frame", left_frame)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        cv2.imshow("Right Frame", right_frame)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def visualize_bounding_box(self, frame, bbox, title="Bounding Box"):
+        """Visualize the bounding box on a frame."""
+        x, y, w, h = bbox
+        frame_copy = frame.copy()
+        cv2.rectangle(frame_copy, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cv2.imshow(title, frame_copy)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def visualize_sift_features(self, left_frame, right_frame, keypoints_left, keypoints_right):
+        """Visualize the SIFT features on both frames."""
+        left_with_features = cv2.drawKeypoints(left_frame, keypoints_left, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        right_with_features = cv2.drawKeypoints(right_frame, keypoints_right, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        cv2.imshow("Left SIFT Features", left_with_features)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        cv2.imshow("Right SIFT Features", right_with_features)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def visualize_sift_matches(self, left_frame, right_frame, keypoints_left, keypoints_right, matches):
+        """Visualize matched SIFT features between left and right frames."""
+        matches_img = cv2.drawMatches(left_frame, keypoints_left, right_frame, keypoints_right, matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        cv2.imshow("SIFT Feature Matches", matches_img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def visualize_cone_estimates(self, cone_estimates_msg):
+        """Plot the cone estimates in a 2D plot."""
+        xs = [cone.x for cone in cone_estimates_msg.cones]
+        ys = [cone.y for cone in cone_estimates_msg.cones]
+
+        plt.figure(figsize=(6, 6))
+        plt.scatter(xs, ys, c='orange', label="Cone Estimates")
+        plt.xlabel("X (cm)")
+        plt.ylabel("Y (cm)")
+        plt.title("Cone Estimates in 2D")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
     def print_benchmark_info(self):
         def print_avg_time(name, times):
             if times:
@@ -271,7 +332,6 @@ class ConeEstimation:
         print_avg_time("SIFT Feature Extraction", self.sift_time)
         print_avg_time("Feature Matching", self.match_time)
         print_avg_time("Triangulation", self.triangulate_time)
-        print_avg_time("Output Publishing", self.output_time)
         print_avg_time("Total Pipeline", self.total_time)
 
 if __name__ == '__main__':
