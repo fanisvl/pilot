@@ -95,7 +95,6 @@ class ConeEstimation:
 
         # benchmark
         self.detect_time = []
-        self.bbox_time = []
         self.sift_time = []
         self.all_cones_time = []
         self.total_time = []
@@ -132,10 +131,7 @@ class ConeEstimation:
             return
 
         # Right box indices
-        bbox_match_start_time = time.time()
         right_detection_matches = self.bounding_box_matching(detections_left, detections_right)
-        bbox_match_end_time = time.time()
-        self.bbox_time.append(bbox_match_end_time-bbox_match_start_time)
 
         visualization_data = []
 
@@ -371,14 +367,12 @@ class ConeEstimation:
                 print(f"Average {name} Time: {avg_time:.4f} s ({1/avg_time:.2f} Hz)")
 
         print("Benchmark Information:")
-        print_avg_time("Detection", self.detect_time)
-        print_avg_time("Bounding Box Match Time", self.bbox_time)
+        print_avg_time("Detection (both frames)", self.detect_time)
         print_avg_time("SIFT Feature Extraction", self.sift_time)
         print_avg_time("Processed All cones Time", self.all_cones_time)
         print_avg_time("Total Pipeline", self.total_time)
 
         self.detect_time.clear()
-        self.bbox_time.clear()
         self.sift_time.clear()
         self.all_cones_time.clear()
         self.total_time.clear()
