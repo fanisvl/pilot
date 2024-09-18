@@ -16,6 +16,9 @@ import numpy as np
 from scipy import stats
 import matplotlib.pyplot as plt
 import time
+import concurrent.futures
+
+import torch
 
 CONE_3D_POINTS = np.array([
     [-65.0, 0.0, 0.0],
@@ -114,107 +117,154 @@ class ConeEstimation:
 
         # Measure detection time
         detect_start = time.time()
-        cuda_img = cudaFromNumpy(left_frame)
-        detections = self.net.Detect(cuda_img)
+        cuda_img_left = cudaFromNumpy(left_frame)
+        cuda_img_right = cudaFromNumpy(right_frame)
+        detections_left = self.net.Detect(cuda_img_left)
+        detections_right = self.net.Detect(cuda_img_right)
         detect_end = time.time()
         self.detect_time.append(detect_end - detect_start)
 
-        if not detections:
+        if not detections_left and not detections_right:
             print("No cone detections.")
             return
+        elif not detections_right or not detections_right:
+            print("No cone detections on left or right frame.")
+            return
 
-        all_cones_time_start = time.time()
-        for id, detection in enumerate(detections):
-            # Bounding Box Propagation
-            bbox_start = time.time()
-            bbox_left = (int(detection.Center[0] - detection.Width / 2),
-                         int(detection.Center[1] - detection.Height / 2),
-                         int(detection.Width),
-                         int(detection.Height))
-            bbox_right = self.bounding_box_propagation(bbox_left, left_frame, right_frame)
-            bbox_end = time.time()
-            self.bbox_time.append(bbox_end - bbox_start)
+        # Right box indices
+        bbox_match_start_time = time.time()
+        right_detection_matches = self.bounding_box_matching(detections_left, detections_right)
+        bbox_match_end_time = time.time()
+        self.bbox_time.append(bbox_match_end_time-bbox_match_start_time)
 
-            if bbox_right is None:
-                continue
+        visualization_data = []
 
-            # SIFT Feature Extraction
-            sift_start = time.time()
-            keypoints_left, descriptors_left = self.extract_sift_features(left_frame, bbox_left)
-            keypoints_right, descriptors_right = self.extract_sift_features(right_frame, bbox_right)
-            sift_end = time.time()
-            self.sift_time.append(sift_end - sift_start)
-
-            # SIFT Feature matching
-            good_matches = self.match_features(descriptors_left, descriptors_right)
-
-            if good_matches is None:
-                continue
+        processed_all_cones_start = time.time()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(self.pipeline, id, left_detection, detections_right, right_detection_matches, left_frame, right_frame) for id, left_detection in enumerate(detections_left)]
             
-            if self.visualize:
-                print(f"id: {id}")
-                self.visualize_frames(left_frame, right_frame)
-                self.visualize_bounding_box(left_frame, bbox_left, "Detected Left Bounding Box")
-                self.visualize_bounding_box(right_frame, bbox_right, "Propagated Right Bounding Box")
-                self.visualize_sift_features(left_frame, right_frame, keypoints_left, keypoints_right)
-                self.visualize_sift_matches(left_frame, right_frame, keypoints_left, keypoints_right, good_matches)
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                if result:
 
-            # Triangulation
-            pts1 = np.float32([keypoints_left[m.queryIdx].pt for m in good_matches])
-            pts2 = np.float32([keypoints_right[m.trainIdx].pt for m in good_matches])
-            if len(pts1) < 1 or len(pts2) < 1:
-                continue
-            points_3d = self.triangulate_points(pts1, pts2)
+                    cone_estimates_msg.cones.append(result['cone_estimate_msg'])
 
-            
-            # Remove outliers
-            z_scores = np.abs(stats.zscore(points_3d, axis=0))
-            threshold = 3 # 3 standard deviations from the mean
-            filtered_points = points_3d[(z_scores < threshold).all(axis=1)]
-
-            # Calculate the median of the filtered points
-            median_points = np.median(filtered_points, axis=0)
-            median_points[0] = -median_points[0]  # Flip sign on X
-            median_points /= 10  # Scale to cm
-
-
-            # Append the result to cones list
-            cone_estimate_msg = ConeEstimate()
-            cone_estimate_msg.id = id
-            cone_estimate_msg.x = median_points[0]
-            cone_estimate_msg.y = median_points[2]
-            cone_estimates_msg.cones.append(cone_estimate_msg)
-
-
+                    # Benchmarking & Visualization
+                    self.sift_time.append(result['sift_time'])
+                    if self.visualize: visualization_data.append(result['visualization_data'])
+        
+        processed_all_cones_end = time.time()
+        self.all_cones_time.append(processed_all_cones_end - processed_all_cones_start)
+        
         self.cone_pub.publish(cone_estimates_msg)
-
-        all_cones_time_end = time.time()
-        self.all_cones_time.append(all_cones_time_end - all_cones_time_start)
 
         total_time_end = time.time()
         total_pipeline_time = total_time_end - start_time
         self.total_time.append(total_pipeline_time)
-
         rospy.loginfo(f"Total Pipeline Time: {total_pipeline_time:.4f} s ({1/total_pipeline_time:.2f} Hz) - {len(cone_estimates_msg.cones)} cones")
-
-        if self.visualize:
-            self.visualize_cone_estimates(cone_estimates_msg)
-            rospy.signal_shutdown("Shutting down after one run.")
-            
-        # Benchmarking
+       
         current_time = time.time()
         if current_time - self.last_benchmark_time >= self.benchmark_interval:
             self.print_benchmark_info()
             self.last_benchmark_time = current_time
 
-    def bounding_box_propagation(self, bbox, left_frame, right_frame):
-        tracker = cv2.TrackerCSRT_create()
-        tracker.init(left_frame, bbox)
-        success, new_bbox = tracker.update(right_frame)
-        if success:
-            return tuple(int(x) for x in new_bbox)  # format: (x, y, w, h)
-        rospy.logerr("Error Tracking Bounding Box to right frame")
-        return None
+        if self.visualize:
+            self.visualize_frames(left_frame, right_frame)
+            for data in visualization_data:
+                self.visualize_bounding_box(left_frame, data['bbox_left'], "Detected Left Bounding Box")
+                self.visualize_bounding_box(right_frame, data['bbox_right'], "Propagated Right Bounding Box")
+                self.visualize_sift_features(left_frame, right_frame, data['keypoints_left'], data['keypoints_right'])
+                self.visualize_sift_matches(left_frame, right_frame, data['keypoints_left'], data['keypoints_right'], data['good_matches'])
+
+            self.plot_cone_estimates(cone_estimates_msg)
+            rospy.signal_shutdown("Shutting down after one run. (visualization enabled)")
+
+    def pipeline(self, id, left_detection, detections_right, right_detection_matches, left_frame, right_frame):
+        """"
+        Bounding Box Propagation
+        SIFT Feature Extraction
+        SIFT Feature Matching
+        Triangulation
+        Filtering
+        """
+
+        # Bounding Box Propagation
+        # TODO: Clean up bbox definitions, use new model output API for all methods instead of redefining
+        bbox_left = (int(left_detection.Center[0] - left_detection.Width / 2),
+                    int(left_detection.Center[1] - left_detection.Height / 2),
+                    int(left_detection.Width),
+                    int(left_detection.Height))
+        
+        bbox_right = detections_right[right_detection_matches[id]]
+        bbox_right = (int(bbox_right.Center[0] - bbox_right.Width / 2),
+                    int(bbox_right.Center[1] - bbox_right.Height / 2),
+                    int(bbox_right.Width),
+                    int(bbox_right.Height))
+
+        if bbox_right is None:
+            return None
+
+        # SIFT Feature Extraction
+        sift_start = time.time()
+        keypoints_left, descriptors_left = self.extract_sift_features(left_frame, bbox_left)
+        keypoints_right, descriptors_right = self.extract_sift_features(right_frame, bbox_right)
+        sift_end = time.time()
+
+        # SIFT Feature matching
+        good_matches = self.match_features(descriptors_left, descriptors_right)
+        if good_matches is None:
+            return None
+
+        # Triangulation
+        pts1 = np.float32([keypoints_left[m.queryIdx].pt for m in good_matches])
+        pts2 = np.float32([keypoints_right[m.trainIdx].pt for m in good_matches])
+        if len(pts1) < 1 or len(pts2) < 1:
+            return
+        
+        points_3d = self.triangulate_points(pts1, pts2)
+        
+        # Remove outliers
+        z_scores = np.abs(stats.zscore(points_3d, axis=0))
+        threshold = 3 # 3 standard deviations from the mean
+        filtered_points = points_3d[(z_scores < threshold).all(axis=1)]
+
+        # Median
+        median_points = np.median(filtered_points, axis=0)
+        median_points[0] = -median_points[0]  # Flip sign on X
+        median_points /= 10  # Scale to cm
+
+        cone_estimate_msg = ConeEstimate()
+        cone_estimate_msg.id = id
+        cone_estimate_msg.x = median_points[0]
+        cone_estimate_msg.y = median_points[1]
+
+        result = {
+            'cone_estimate_msg': cone_estimate_msg,
+            'sift_time': sift_end - sift_start
+        }
+
+        if self.visualize:
+            result['visualization_data'] = {
+                'bbox_left': bbox_left,
+                'bbox_right': bbox_right,
+                'keypoints_left': keypoints_left,
+                'keypoints_right': keypoints_right,
+                'good_matches': good_matches
+            }
+
+        return result
+
+
+    def bounding_box_matching(self, left_detections, right_detections):
+        left_centers_x = torch.tensor([d.Center[0] for d in left_detections], dtype=torch.float)
+        right_centers_x = torch.tensor([d.Center[0] for d in right_detections], dtype=torch.float)
+
+        horizontal_differences = (left_centers_x[:, None] - right_centers_x[None, :]).abs()
+
+        # best matched index for each left box
+        best_right_matches = torch.argmin(horizontal_differences, dim=1)
+
+        return best_right_matches
 
     def extract_sift_features(self, image, bounding_box):
         x, y, w, h = bounding_box
@@ -296,7 +346,7 @@ class ConeEstimation:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    def visualize_cone_estimates(self, cone_estimates_msg):
+    def plot_cone_estimates(self, cone_estimates_msg):
         """Plot the cone estimates in a 2D plot."""
 
         plt.figure(figsize=(6, 6))
@@ -322,9 +372,9 @@ class ConeEstimation:
 
         print("Benchmark Information:")
         print_avg_time("Detection", self.detect_time)
-        print_avg_time("Bounding Box Propagation", self.bbox_time)
+        print_avg_time("Bounding Box Match Time", self.bbox_time)
         print_avg_time("SIFT Feature Extraction", self.sift_time)
-        print_avg_time("All Cones Time", self.all_cones_time)
+        print_avg_time("Processed All cones Time", self.all_cones_time)
         print_avg_time("Total Pipeline", self.total_time)
 
         self.detect_time.clear()
