@@ -177,7 +177,6 @@ class ConeEstimation:
 
     def pipeline(self, id, left_detection, detections_right, right_detection_matches, left_frame, right_frame):
         """"
-        Bounding Box Propagation
         SIFT Feature Extraction
         SIFT Feature Matching
         Triangulation
