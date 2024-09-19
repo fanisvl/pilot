@@ -69,12 +69,12 @@ T = np.array([
 class ConeEstimation:
     def __init__(self):
         self.net = detectNet(
-            model="/workspace/pilot/src/perception/src/models/mobilenet/mobilenet.onnx",
-            labels="/workspace/pilot/src/perception/src/models/mobilenet/labels.txt",
+            model="/workspace/pilot/src/perception/src/models/v1.onnx",
+            labels="/workspace/pilot/src/perception/src/models/labels.txt",
             input_blob="input_0",
             output_cvg="scores",
             output_bbox="boxes",
-            threshold=0.20
+            threshold=0.1
         )
         rospy.loginfo("Model loaded.")
         rospy.init_node('cone_estimation')
@@ -165,30 +165,17 @@ class ConeEstimation:
 
             if good_matches is None:
                 continue
-            
-            if self.visualize:
-                print(f"id: {id}")
-                self.visualize_frames(left_frame, right_frame)
-                self.visualize_bounding_box(left_frame, bbox_left, "Detected Left Bounding Box")
-                self.visualize_bounding_box(right_frame, bbox_right, "Propagated Right Bounding Box")
-                self.visualize_sift_features(left_frame, right_frame, keypoints_left, keypoints_right)
-                self.visualize_sift_matches(left_frame, right_frame, keypoints_left, keypoints_right, good_matches)
 
             # Triangulation
             pts1 = np.float32([keypoints_left[m.queryIdx].pt for m in good_matches])
             pts2 = np.float32([keypoints_right[m.trainIdx].pt for m in good_matches])
             if len(pts1) < 1 or len(pts2) < 1:
+                print(f"(id: {id}): Not enough good SIFT feature matches")
                 continue
             points_3d = self.triangulate_points(pts1, pts2)
 
-            
-            # Remove outliers
-            z_scores = np.abs(stats.zscore(points_3d, axis=0))
-            threshold = 3 # 3 standard deviations from the mean
-            filtered_points = points_3d[(z_scores < threshold).all(axis=1)]
-
             # Calculate the median of the filtered points
-            median_points = np.median(filtered_points, axis=0)
+            median_points = np.median(points_3d, axis=0)
             median_points[0] = -median_points[0]  # Flip sign on X
             median_points /= 10  # Scale to cm
 
@@ -200,6 +187,14 @@ class ConeEstimation:
             cone_estimate_msg.y = median_points[2]
             cone_estimates_msg.cones.append(cone_estimate_msg)
 
+
+            if self.visualize:
+                print(f"id: {id}, (x,y): ({median_points[0]}, {median_points[2]})")
+                self.visualize_frames(left_frame, right_frame)
+                self.visualize_bounding_box(left_frame, bbox_left, "Detected Left Bounding Box")
+                self.visualize_bounding_box(right_frame, bbox_right, "Propagated Right Bounding Box")
+                self.visualize_sift_features(left_frame, right_frame, keypoints_left, keypoints_right)
+                self.visualize_sift_matches(left_frame, right_frame, keypoints_left, keypoints_right, good_matches)
 
         self.cone_pub.publish(cone_estimates_msg)
 
