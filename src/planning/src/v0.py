@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 from messages.msg import ConeEstimates, ConeEstimate, Point
 import matplotlib.pyplot as plt
 import numpy as np
