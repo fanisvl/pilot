@@ -20,48 +20,6 @@ class PathPlanningNode:
         self.TRACK_WIDTH = 3
 
     def cone_estimates_callback(self, cone_estimates_msg):
-
-        cone_estimates = [(cone.x, cone.y) for cone in cone_estimates_msg.cones]
-
-        if len(cone_estimates) < 3:
-            print(f"Planning: Need at least 3 points (Delaunay), only have {len(cone_estimates)}.")
-            return
-
-        centerline_points = self.path_planning(cone_estimates)
-
-        self.centerline_pub.publish(centerline_points)
-
-
-    def path_planning(self, cone_estimates):
-        """
-        INPUT: Cone Estimates
-        OUTPUT: Centerline Path Points
-        """
-aueb@aueb:~/workspace/autopilot/src/planning/src$ ls
-planning.py
-aueb@aueb:~/workspace/autopilot/src/planning/src$ cat planning.py 
-#!/usr/bin/python3
-
-import rospy
-import json
-import math
-import numpy as np
-from scipy.spatial import Delaunay
-from sklearn.cluster import DBSCAN
-from std_msgs.msg import Float64
-from messages.msg import ConeEstimates, CenterLinePoints, Point
-
-class PathPlanningNode:
-    def __init__(self):
-        rospy.init_node('path_planning_node')
-
-        # Initialize Publisher and Subscriber
-        self.centerline_pub = rospy.Publisher('/centerline_points', CenterLinePoints, queue_size=1)
-        self.cone_estimates_sub = rospy.Subscriber('/cone_estimates', ConeEstimates, self.cone_estimates_callback)
-
-        self.TRACK_WIDTH = 3
-
-    def cone_estimates_callback(self, cone_estimates_msg):
         
         cone_estimates = [(cone.x, cone.y) for cone in cone_estimates_msg.cones]
 
