@@ -8,7 +8,7 @@ import numpy as np
 class Control:
     def __init__(self):
         rospy.init_node("control_node")
-        self.tajectory_sub =  rospy.Subscriber("trajectory", Points, self.control)
+        self.tajectory_sub =  rospy.Subscriber("/trajectory", Points, self.control)
 
         self.WHEELBASE_LEN = 15 #cm
         self.PURE_PURSUIT_L = 5 #cm
@@ -91,6 +91,8 @@ class Control:
 
         target = self.pure_pursuit(trajectory_points, self.PURE_PURSUIT_L)
         steering_angle = self.steering_angle(target)
+
+        rospy.loginfo(f"Target: {target}, St. Angle: {steering_angle}")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 from messages.msg import ConeEstimates, ConeEstimate, Point, Points
 import numpy as np
 import math
+import rospy
 
 """"
 V0
@@ -14,10 +15,10 @@ Only requires a pair of cones. Find the midpoint of the closest pair and generat
 class Planner:
     def __init__(self):
         rospy.init_node('planning_node')
-        self.target_pub = rospy.Publisher('/trajectory', Point, queue_size=1)
+        self.target_pub = rospy.Publisher('/trajectory', Points, queue_size=1)
 
         # Initialize Publisher and Subscriber
-        self.cone_estimates_sub = rospy.Subscriber('/cone_estimates', ConeEstimates, self.plan)
+        self.cone_estimates_sub = rospy.Subscriber('/cone_estimates', ConeEstimates, self.plan, queue_size=1)
 
     def remove_duplicate_estimates(self, estimates, threshold=0.5):
         """
@@ -26,8 +27,8 @@ class Planner:
         """
         if len(estimates) == 0:
             return estimates
-        estimates = np.array(estimates)
         filtered_estimates = []
+        estimates = np.array(estimates)
         for estimate in estimates:
             if not any(np.linalg.norm(estimate - p) < threshold for p in filtered_estimates):
                 filtered_estimates.append(estimate)
@@ -37,7 +38,7 @@ class Planner:
         """
         Find the closest cone estimate pair to (0,0)
         """
-        distances = [(np.sqrt(estimates[0]**2 + estimate[1]**2), estimate) for estimate in estimates]
+        distances = [(np.sqrt(estimate[0]**2 + estimate[1]**2), estimate) for estimate in estimates]
         distances.sort(key=lambda d: d[0])
         closest_pair = [distances[0][1], distances[1][1]]
 
@@ -49,7 +50,7 @@ class Planner:
         midpoint = ((x1+x2)/2, (y1+y2)/2)
         return midpoint
     
-    def generate_trajectory(p1, p2, samples=5):
+    def generate_trajectory(self, p1, p2, samples=5):
         """
         Generate points along the linear interpolation of p1 and p2.
         """
@@ -83,9 +84,13 @@ class Planner:
         closest_path_point = min(path_points, key=lambda p: math.sqrt(p[0]**2 + p[1]**2))
 
         trajectory_points = self.generate_trajectory((0,0), closest_path_point, samples=10)
-
         trajectory_msg = Points()
-        trajectory_msg.points = trajectory_points
+
+        for point in trajectory_points:
+            point_msg = Point()
+            point_msg.x, point_msg.y = point[0], point[1]
+            trajectory_msg.points.append(point_msg)
+
         self.target_pub.publish(trajectory_msg)
     
 if __name__ == '__main__':
