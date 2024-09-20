@@ -2,6 +2,7 @@
 
 import rospy
 from messages.msg import Points, Point
+from std_msgs.msg import Float32
 import math
 import numpy as np
 
@@ -9,6 +10,8 @@ class Control:
     def __init__(self):
         rospy.init_node("control_node")
         self.tajectory_sub =  rospy.Subscriber("/trajectory", Points, self.control)
+        self.steering_pub = rospy.Publisher("/control/steering", Float32, queue_size=1)
+        self.target_pub = rospy.Publisher("/control/target", Point, queue_size=1)
 
         self.WHEELBASE_LEN = 15 #cm
         self.PURE_PURSUIT_L = 5 #cm
@@ -20,6 +23,7 @@ class Control:
             (1.42,  0.75),    # TURN_B
             (1.57,  1.00)     # TURN_MAX
         ]
+        rospy.loginfo("Control initialized.")
 
 
     def pure_pursuit(self, trajectory_points, L=5):
@@ -36,7 +40,7 @@ class Control:
         
         raise ValueError("Pure Pursuit: No suitable points found")
 
-    def steering_angle(self, target):
+    def steering(self, target):
         """
         INPUT: Target point
         Steering angle output from pure pursuit ranges from (-1.57, 1.57) = (-pi/2, pi/2)
@@ -87,13 +91,13 @@ class Control:
         INPUT: Trajectory points from planning
         OUTPUT: Steering commands to actuators
         """
+
         trajectory_points = trajectory_msg.points
-
         target = self.pure_pursuit(trajectory_points, self.PURE_PURSUIT_L)
-        steering_angle = self.steering_angle(target)
+        steering = self.steering(target)
 
-        rospy.loginfo(f"Target: {target}, St. Angle: {steering_angle}")
-
+        self.steering_pub.publish(Float32(steering))
+        self.target_pub.publish(Point(x=target[0], y=target[1]))
 
 if __name__ == "__main__":
     node = Control()
