@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="operation" type="live_map.py" name="live_map" output="screen">
+    </node>
+</launch>
+
