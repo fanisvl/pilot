@@ -10,8 +10,8 @@ class Control:
         rospy.init_node("control_node")
         self.tajectory_sub =  rospy.Subscriber("trajectory", Points, self.control)
 
-        self.WHEELBASE_LEN = 0.5
-        self.PURE_PURSUIT_L = 3
+        self.WHEELBASE_LEN = 15 #cm
+        self.PURE_PURSUIT_L = 5 #cm
 
         self.TURN_THRESHOLDS = [
             (1.0,   0.00),    # TURN_MIN
@@ -69,7 +69,7 @@ class Control:
         A = vx**2 + vy**2
         B = 2 * (vx * (x_inner - x_c) + vy * (y_inner - y_c))
         C = (x_inner - x_c)**2 + (y_inner - y_c)**2 - radius**2
-        
+
         discriminant = B**2 - 4 * A * C
         if discriminant < 0:
             raise ValueError("The points do not form a line that intersects the circle.")
