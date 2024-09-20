@@ -14,7 +14,7 @@ class Control:
         self.target_pub = rospy.Publisher("/control/target", Point, queue_size=1)
 
         self.WHEELBASE_LEN = 15 #cm
-        self.PURE_PURSUIT_L = 5 #cm
+        self.PURE_PURSUIT_L = 30 #cm
 
         self.TURN_THRESHOLDS = [
             (1.0,   0.00),    # TURN_MIN
