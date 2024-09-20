@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 from messages.msg import ConeEstimates, ConeEstimate, Point
-import matplotlib.pyplot as plt
 import numpy as np
 
 """"
@@ -14,9 +13,9 @@ Only requires a pair of cones. Find the midpoint of the closest pair.
 class Planner:
     def __init__(self):
         rospy.init_node('planning_node')
+        self.target_pub = rospy.Publisher('/target_point', Point, queue_size=1)
 
         # Initialize Publisher and Subscriber
-        self.target_pub = rospy.Publisher('/target_point', Point, queue_size=1)
         self.cone_estimates_sub = rospy.Subscriber('/cone_estimates', ConeEstimates, self.plan)
 
     def plan(self, cone_estimates_msg):

@@ -9,44 +9,39 @@ from sklearn.cluster import DBSCAN
 from std_msgs.msg import Float64
 from messages.msg import ConeEstimates, CenterLinePoints, Point
 
-class PathPlanningNode:
+class Planning:
     def __init__(self):
-        rospy.init_node('path_planning_node')
+        rospy.init_node('planning')
 
         # Initialize Publisher and Subscriber
-        self.centerline_pub = rospy.Publisher('/centerline_points', CenterLinePoints, queue_size=1)
-        self.cone_estimates_sub = rospy.Subscriber('/cone_estimates', ConeEstimates, self.cone_estimates_callback)
+        self.centerline_pub = rospy.Publisher('/path_points', CenterLinePoints, queue_size=1)
+        self.cone_estimates_sub = rospy.Subscriber('/cone_estimates', ConeEstimates, self.planning)
 
         self.TRACK_WIDTH = 3
 
-    def cone_estimates_callback(self, cone_estimates_msg):
-        
-        cone_estimates = [(cone.x, cone.y) for cone in cone_estimates_msg.cones]
-
-        if len(cone_estimates) < 3:
-            print(f"Planning: Need at least 3 points (Delaunay), only have {len(cone_estimates)}.")
-            return
-
-        centerline_points = self.path_planning(cone_estimates)
-
-        self.centerline_pub.publish(centerline_points)
-
-
-    def path_planning(self, cone_estimates):
+    def planning(self, cone_estimates_msg):
         """
         INPUT: Cone Estimates
         OUTPUT: Centerline Path Points
         """
-        #points_of_interest = self.remove_background_points(cone_estimates)
+        cone_estimates = [(cone.x, cone.y) for cone in cone_estimates_msg.cones]
 
-        #filtered_cone_estimates = [cone for cone in cone_estimates if (cone.x, cone.y) in points_of_interest]
+        # 
+        if len(cone_estimates) < 2:
+            print(f"Not enough ")
+            return
 
-        centerline_points = self.find_midpoints(cone_estimates)
-        return centerline_points
+
+        if len(cone_estimates) < 4:
+            print(f"Planning: Need at least 3 points (Delaunay), only have {len(cone_estimates)}.")
+            return
+
+        path_points = self.find_midpoints(cone_estimates)
+        self.centerline_pub.publish(path_points)
 
     def find_midpoints(self, points):
         centerline_msg = CenterLinePoints()
-        centerline_points = centerline_msg.centerline
+        path_points = centerline_msg.centerline
 
         points_array = np.array(points)
         
@@ -60,34 +55,8 @@ class PathPlanningNode:
             edges = [(p1, p2), (p2, p3), (p3, p1)]
             for (v1, v2) in edges:
                 midpoint = Point(x=(v1[0] + v2[0]) / 2, y=(v1[1] + v2[1]) / 2)
-                centerline_points.append(midpoint)
-        return centerline_points
-
-    def interpolate_to_circle(self, center, radius, inner_point, outer_point):
-        x_c, y_c = center
-        x_inner, y_inner = inner_point
-        x_outer, y_outer = outer_point
-
-        vx = x_outer - x_inner
-        vy = y_outer - y_inner
-
-        A = vx**2 + vy**2
-        B = 2 * (vx * (x_inner - x_c) + vy * (y_inner - y_c))
-        C = (x_inner - x_c)**2 + (y_inner - y_c)**2 - radius**2
-
-        discriminant = B**2 - 4 * A * C
-
-        if discriminant < 0:
-            raise ValueError("The points do not form a line that intersects the circle.")
-        t1 = (-B + np.sqrt(discriminant)) / (2 * A)
-        t2 = (-B - np.sqrt(discriminant)) / (2 * A)
-
-        t = max(t1, t2)
-
-        x_interp = x_inner + t * vx
-        y_interp = y_inner + t * vy
-
-        return (x_interp, y_interp)
+                path_points.append(midpoint)
+        return path_points
 
     def remove_background_points(self, points):
         """
@@ -181,6 +150,6 @@ class PathPlanningNode:
         return virtual_points
 
 if __name__ == '__main__':
-    node = PathPlanningNode()
+    node = Planning()
     rospy.spin()
 
