@@ -52,7 +52,7 @@ add_message_files(
   FILES
   ConeEstimate.msg
   ConeEstimates.msg
-  CenterLinePoints.msg
+  Points.msg
   Point.msg
 )
 
