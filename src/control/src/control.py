@@ -27,7 +27,7 @@ class Control:
         rospy.loginfo("Control initialized.")
 
 
-    def pure_pursuit(self, trajectory_points, L=5):
+    def pure_pursuit(self, trajectory_points, L=100):
         while L > 0:
             outerpoints = [point for point in trajectory_points if self.euclidean_distance_origin((point.x, point.y)) >= L]
             innerpoints = [point for point in trajectory_points if self.euclidean_distance_origin((point.x, point.y)) < L]
