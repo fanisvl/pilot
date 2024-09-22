@@ -20,10 +20,12 @@ class LiveMap:
         self.trajectory = []
         self.target = []
         self.steering = 0
+        self.steering_angle = 0
 
         self.sub_cones = rospy.Subscriber("/cone_estimates", ConeEstimates, self.cones_callback, queue_size=1)
         self.sub_trajectory = rospy.Subscriber("/trajectory", Points, self.trajectory_callback, queue_size=1)
-        self.sub_steering = rospy.Subscriber("/control/steering", Float32, self.steering_callback, queue_size=1)
+        self.sub_steering = rospy.Subscriber("/control/steering", Float32, self.steering_angle_callback, queue_size=1)
+        self.sub_steering = rospy.Subscriber("/control/steering_angle", Float32, self.steering_callback, queue_size=1)
         self.sub_target = rospy.Subscriber("/control/target", Point, self.target_callback, queue_size=1)
 
         
@@ -38,6 +40,10 @@ class LiveMap:
     
     def steering_callback(self, msg):
         self.steering = msg.data
+        print(f"Steering Angle: {msg.data}")
+
+    def steering_angle_callback(self, msg):
+        self.steering_angle = msg.data
         print(f"Steering: {msg.data}")
 
     def target_callback(self, msg):
@@ -52,6 +58,8 @@ class LiveMap:
             if self.cones:
                 x_cones, y_cones = zip(*self.cones)
                 self.ax.scatter(x_cones, y_cones, color="orange", label="Cones")  # Plot cone points
+                for x, y in zip(x_cones, y_cones):
+                    self.ax.text(x, y + 0.3, f'({x:.0f}, {y:.0f})', fontsize=8, ha='center')
             # Plot trajectory points
             if self.trajectory:
                 x_trajectory, y_trajectory = zip(*self.trajectory)
