@@ -86,7 +86,6 @@ class ConeEstimation:
 
         all_cones_time_start = time.time()
         for id, detection_left in enumerate(detections_left):
-            # TODO: Clean up bbox definitions, use new model output API for all methods instead of redefining
             bbox_left = self.get_bbox(detection_left) # x,y,w,h
             
             detection_right = detections_right[right_detection_matches[id]]
@@ -118,8 +117,9 @@ class ConeEstimation:
 
             # calc. median of triangulated points
             median_points = np.median(points_3d, axis=0)
+            median_points /= 10  # scale to cm
             median_points[0] = -median_points[0]  # Flip sign on X
-            median_points /= 10  # Scale to cm
+            median_points[0] -= 3 # stereo cam baseline is 6cm, sift x to approximate vehicle world frame
 
             # create ros msg
             cone_estimate_msg = ConeEstimate()
