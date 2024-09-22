@@ -14,57 +14,9 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 from messages.msg import ConeEstimates, ConeEstimate
 
 import numpy as np
-from scipy import stats
 import matplotlib.pyplot as plt
 import time
-
-CONE_3D_POINTS = np.array([
-    [-65.0, 0.0, 0.0],
-    [-39.34, 89.52, 0.0],
-    [-22.24, 151.10, 0.0],
-    [0.0, 185.31, 0.0],
-    [65.0, 0.0, 0.0],
-    [39.34, 89.52, 0.0],
-    [22.24, 151.10, 0.0]
-], dtype=np.float32)
-
-# Left Camera Intrinsic Matrix
-LEFT_INTR = np.array([
-    [1122.426162, 0.000000, 598.503499],
-    [0.000000, 1121.925556, 365.915575],
-    [0.000000, 0.000000, 1.000000]
-], dtype=np.float32)
-
-# Left Camera Distortion Coefficients
-LEFT_DIST = np.array([
-    -0.058484, 0.512610, 0.000971, -0.000261, -1.056148
-], dtype=np.float32)
-
-# Right Camera Intrinsic Matrix
-RIGHT_INTR = np.array([
-    [1120.255791, 0.000000, 579.629778],
-    [0.000000, 1118.852221, 357.675228],
-    [0.000000, 0.000000, 1.000000]
-], dtype=np.float32)
-
-# Right Camera Distortion Coefficients
-RIGHT_DIST = np.array([
-    -0.098465, 0.442262, -0.001005, -0.002640, -0.642019
-], dtype=np.float32)
-
-# Rotation Matrix
-R = np.array([
-    [0.999625, -0.008677, -0.025983],
-    [0.008992, 0.999887, 0.012057],
-    [0.025876, -0.012286, 0.999590]
-], dtype=np.float32)
-
-# Translation Vector
-T = np.array([
-    [63.697536],
-    [-4.602118],
-    [8.842539]
-], dtype=np.float32)
+import yaml
 
 class ConeEstimation:
     def __init__(self):
@@ -76,20 +28,20 @@ class ConeEstimation:
             output_bbox="boxes",
             threshold=0.1
         )
+        
         rospy.loginfo("Model loaded.")
         rospy.init_node('cone_estimation')
 
         self.bridge = CvBridge()
-        # Define subscribers for left and right images
         self.left_sub = Subscriber('/left_cam/raw', Image)
         self.right_sub = Subscriber('/right_cam/raw', Image)
-
-        # Define publisher for cone estimates
         self.cone_pub = rospy.Publisher('/cone_estimates', ConeEstimates, queue_size=1)
 
-        # Set up the time synchronizer
+        # approximate time sync
         self.time_sync = ApproximateTimeSynchronizer([self.left_sub, self.right_sub], queue_size=1, slop=0.1)
         self.time_sync.registerCallback(self.cone_estimation)
+
+        self.cam_info = self.get_cam_info("/workspace/pilot/src/perception/src/cam_config.yaml")
 
         # benchmark
         self.detect_time = []
@@ -134,8 +86,6 @@ class ConeEstimation:
 
         all_cones_time_start = time.time()
         for id, detection in enumerate(detections_left):
-            
-            
             # TODO: Clean up bbox definitions, use new model output API for all methods instead of redefining
             width = 0.8 * detection.Width
             bbox_left = (int(detection.Center[0] - width / 2),
@@ -179,14 +129,12 @@ class ConeEstimation:
             median_points[0] = -median_points[0]  # Flip sign on X
             median_points /= 10  # Scale to cm
 
-
             # Append the result to cones list
             cone_estimate_msg = ConeEstimate()
             cone_estimate_msg.id = id
             cone_estimate_msg.x = median_points[0]
             cone_estimate_msg.y = median_points[2]
             cone_estimates_msg.cones.append(cone_estimate_msg)
-
 
             if self.visualize:
                 print(f"id: {id}, (x,y): ({median_points[0]}, {median_points[2]})")
@@ -204,8 +152,6 @@ class ConeEstimation:
         total_time_end = time.time()
         total_pipeline_time = total_time_end - start_time
         self.total_time.append(total_pipeline_time)
-
-        #rospy.loginfo(f"Total Pipeline Time: {total_pipeline_time:.4f} s ({1/total_pipeline_time:.2f} Hz) - {len(cone_estimates_msg.cones)} cones")
 
         if self.visualize:
             self.visualize_cone_estimates(cone_estimates_msg)
@@ -258,8 +204,8 @@ class ConeEstimation:
         return good_matches
 
     def triangulate_points(self, pts1, pts2):
-        projMatrix1 = np.dot(LEFT_INTR, np.hstack((np.eye(3), np.zeros((3, 1)))))
-        projMatrix2 = np.dot(RIGHT_INTR, np.hstack((R, T)))
+        projMatrix1 = np.dot(self.cam_info["LEFT_INTR"], np.hstack((np.eye(3), np.zeros((3, 1)))))
+        projMatrix2 = np.dot(self.cam_info["RIGHT_INTR"], np.hstack((self.cam_info["R"], self.cam_info["T"])))
 
         pts1 = pts1.T
         pts2 = pts2.T
@@ -345,6 +291,25 @@ class ConeEstimation:
         self.all_cones_time.clear()
         self.total_time.clear()
 
+    def get_cam_info(self, config_file):
+        with open(config_file, 'r') as file:
+            config = yaml.safe_load(file)
+
+        left_intr = np.array(config['camera_intrinsics']['left']['intrinsic_matrix'], dtype=np.float32)
+        left_dist = np.array(config['camera_intrinsics']['left']['distortion_coefficients'], dtype=np.float32)
+        right_intr = np.array(config['camera_intrinsics']['right']['intrinsic_matrix'], dtype=np.float32)
+        right_dist = np.array(config['camera_intrinsics']['right']['distortion_coefficients'], dtype=np.float32)
+        R = np.array(config['camera_extrinsics']['rotation_matrix'], dtype=np.float32)
+        T = np.array(config['camera_extrinsics']['translation_vector'], dtype=np.float32)
+
+        return {
+            'LEFT_INTR': left_intr,
+            'LEFT_DIST': left_dist,
+            'RIGHT_INTR': right_intr,
+            'RIGHT_DIST': right_dist,
+            'R': R,
+            'T': T
+        }
 
 if __name__ == '__main__':
     node = ConeEstimation()
