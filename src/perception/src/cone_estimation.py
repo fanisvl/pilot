@@ -14,9 +14,10 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 from messages.msg import ConeEstimates, ConeEstimate
 
 import numpy as np
-import matplotlib.pyplot as plt
 import time
 import yaml
+from utils import get_cam_info, plot_cone_estimates, debug_pipeline, print_benchmark_info, benchmark
+
 
 class ConeEstimation:
     def __init__(self):
@@ -41,70 +42,52 @@ class ConeEstimation:
         self.time_sync = ApproximateTimeSynchronizer([self.left_sub, self.right_sub], queue_size=1, slop=0.1)
         self.time_sync.registerCallback(self.cone_estimation)
 
-        self.cam_info = self.get_cam_info("/workspace/pilot/src/perception/src/cam_config.yaml")
+        self.cam_info = get_cam_info("/workspace/pilot/src/perception/src/cam_config.yaml")
 
         # benchmark
-        self.detect_time = []
-        self.bbox_time = []
-        self.sift_time = []
-        self.all_cones_time = []
-        self.total_time = []
-
-        # benchmark parameters
-        self.benchmark_interval = 10 #sec
-        self.last_benchmark_time = time.time()
+        self.benchmark = rospy.get_param('~benchmark', True)
+        if self.benchmark:
+            self.benchmark_interval = rospy.get_param('~benchmark_interval', 5)
+            timer = rospy.Timer(rospy.Duration(self.benchmark_interval), print_benchmark_info)
 
         # debug mode
         self.debug = rospy.get_param('~debug', False)
 
+    @benchmark('total')
     def cone_estimation(self, left_msg, right_msg):
-        start_time = time.time()
+        cone_estimates_msg = ConeEstimates()
+        cone_estimates_msg.cones = []
 
         left_frame = self.bridge.imgmsg_to_cv2(left_msg, desired_encoding='bgr8')
         right_frame = self.bridge.imgmsg_to_cv2(right_msg, desired_encoding='bgr8')
 
-        cone_estimates_msg = ConeEstimates()
-        cone_estimates_msg.cones = []
-
-        # Measure detection time
-        detect_start = time.time()
-        cuda_img_left = cudaFromNumpy(left_frame)
-        cuda_img_right = cudaFromNumpy(right_frame)
-        detections_left = self.net.Detect(cuda_img_left)
-        detections_right = self.net.Detect(cuda_img_right)
-        detect_end = time.time()
-        self.detect_time.append(detect_end - detect_start)
+        detections_left = self.detect_cones(left_frame)
+        detections_right = self.detect_cones(right_frame)
 
         if not detections_left and not detections_right:
             print("No cone detections.")
             return
         elif not detections_right or not detections_right:
-            print("No cone detections on left or right frame.")
+            print("No cone detections on one of the frames.")
             return
         
         # Right box indices
         right_detection_matches = self.bounding_box_matching(detections_left, detections_right)
 
-        all_cones_time_start = time.time()
         for id, detection_left in enumerate(detections_left):
             bbox_left = self.get_bbox(detection_left) # x,y,w,h
             
             detection_right = detections_right[right_detection_matches[id]]
             bbox_right = self.get_bbox(detection_right)
-
             if bbox_right is None:
                 continue
 
             # SIFT Feature Extraction
-            sift_start = time.time()
             keypoints_left, descriptors_left = self.extract_sift_features(left_frame, bbox_left)
             keypoints_right, descriptors_right = self.extract_sift_features(right_frame, bbox_right)
-            sift_end = time.time()
-            self.sift_time.append(sift_end - sift_start)
 
             # SIFT Feature matching
             good_matches = self.match_features(descriptors_left, descriptors_right)
-
             if good_matches is None:
                 continue
 
@@ -131,27 +114,20 @@ class ConeEstimation:
 
             # visualize every step of the pipeline
             if self.debug:
-                self.debug_pipeline(left_frame, right_frame, bbox_left, bbox_right, 
-                                    keypoints_left, keypoints_right, good_matches)
+                debug_pipeline(left_frame, right_frame, bbox_left, bbox_right, 
+                                keypoints_left, keypoints_right, good_matches)
 
         self.cone_pub.publish(cone_estimates_msg)
 
-        all_cones_time_end = time.time()
-        self.all_cones_time.append(all_cones_time_end - all_cones_time_start)
-
-        total_time_end = time.time()
-        total_pipeline_time = total_time_end - start_time
-        self.total_time.append(total_pipeline_time)
-
-        # Benchmarking
-        current_time = time.time()
-        if current_time - self.last_benchmark_time >= self.benchmark_interval:
-            self.print_benchmark_info()
-            self.last_benchmark_time = current_time
-
         if self.debug:
-            self.plot_cone_estimates(cone_estimates_msg)
+            plot_cone_estimates(cone_estimates_msg)
             rospy.signal_shutdown("Shutting down after one run.")
+
+    @benchmark('detect')
+    def detect_cones(self, frame):
+        cuda_img = cudaFromNumpy(frame)
+        detections = self.net.Detect(cuda_img)
+        return detections
         
     def get_bbox(self, detection, width_scale=0.8):
         """Calculate bounding box coordinates from a detection object."""
@@ -176,6 +152,7 @@ class ConeEstimation:
 
         return best_right_matches
     
+    @benchmark('propagation')
     def bounding_box_propagation(self, bbox, left_frame, right_frame):
         """
         Propagate the detected bounding box from the L frame to the R frame.
@@ -190,6 +167,7 @@ class ConeEstimation:
         rospy.logerr("Error Tracking Bounding Box to right frame")
         return None
 
+    @benchmark('sift')
     def extract_sift_features(self, image, bounding_box):
         x, y, w, h = bounding_box
         cropped_image = image[y:y + h, x:x + w]
@@ -232,87 +210,6 @@ class ConeEstimation:
 
         return points3D.T
 
-    def plot_cone_estimates(self, cone_estimates_msg):
-        """Plot cone estimates msg"""
-        plt.figure(figsize=(6, 6))
-        for cone in cone_estimates_msg.cones:
-            plt.scatter(cone.x, cone.y, c='orange')
-            plt.text(cone.x, cone.y+3, f'{cone.id}: ({cone.x:.2f}, {cone.y:.2f})', fontsize=9, ha='right')
-
-        plt.scatter(0, 0, c='red', marker='x')
-        plt.xlabel("X (cm)")
-        plt.ylabel("Z (cm)")
-        plt.title("Cone Estimation Map")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
-
-    def debug_pipeline(self, left_frame, right_frame, bbox_left, bbox_right, 
-                          keypoints_left, keypoints_right, good_matches):
-        
-         # Visualize bounding boxes
-        left_frame_copy = left_frame.copy()
-        right_frame_copy = right_frame.copy()
-        
-        cv2.rectangle(left_frame_copy, (bbox_left[0], bbox_left[1]), 
-                    (bbox_left[0] + bbox_left[2], bbox_left[1] + bbox_left[3]), (0, 255, 0), 2)
-        cv2.rectangle(right_frame_copy, (bbox_right[0], bbox_right[1]), 
-                    (bbox_right[0] + bbox_right[2], bbox_right[1] + bbox_right[3]), (0, 255, 0), 2)
-
-        # Visualize features
-        left_with_features = cv2.drawKeypoints(left_frame_copy, keypoints_left, None, 
-                                            flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        right_with_features = cv2.drawKeypoints(right_frame_copy, keypoints_right, None, 
-                                                flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-        combined_frame = cv2.hconcat([left_with_features, right_with_features])
-        cv2.imshow("BBoxes and Features", combined_frame)
-        cv2.waitKey(0)
-
-        # feature matches
-        matches_img = cv2.drawMatches(left_frame, keypoints_left, right_frame, keypoints_right, 
-                                      good_matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        cv2.imshow("SIFT Feature Matches", matches_img)
-        cv2.waitKey(0)
-
-    def print_benchmark_info(self):
-        def print_avg_time(name, times):
-            if times:
-                avg_time = np.mean(times)
-                print(f"Average {name} Time: {avg_time:.4f} s ({1/avg_time:.2f} Hz)")
-
-        print("Benchmark Information:")
-        print_avg_time("Detection", self.detect_time)
-        print_avg_time("Bounding Box Propagation", self.bbox_time)
-        print_avg_time("SIFT Feature Extraction", self.sift_time)
-        print_avg_time("All Cones Time", self.all_cones_time)
-        print_avg_time("Total Pipeline", self.total_time)
-
-        self.detect_time.clear()
-        self.bbox_time.clear()
-        self.sift_time.clear()
-        self.all_cones_time.clear()
-        self.total_time.clear()
-
-    def get_cam_info(self, config_file):
-        with open(config_file, 'r') as file:
-            config = yaml.safe_load(file)
-
-        left_intr = np.array(config['camera_intrinsics']['left']['intrinsic_matrix'], dtype=np.float32)
-        left_dist = np.array(config['camera_intrinsics']['left']['distortion_coefficients'], dtype=np.float32)
-        right_intr = np.array(config['camera_intrinsics']['right']['intrinsic_matrix'], dtype=np.float32)
-        right_dist = np.array(config['camera_intrinsics']['right']['distortion_coefficients'], dtype=np.float32)
-        R = np.array(config['camera_extrinsics']['rotation_matrix'], dtype=np.float32)
-        T = np.array(config['camera_extrinsics']['translation_vector'], dtype=np.float32)
-
-        return {
-            'LEFT_INTR': left_intr,
-            'LEFT_DIST': left_dist,
-            'RIGHT_INTR': right_intr,
-            'RIGHT_DIST': right_dist,
-            'R': R,
-            'T': T
-        }
 
 if __name__ == '__main__':
     node = ConeEstimation()
