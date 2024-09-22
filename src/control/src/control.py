@@ -11,10 +11,11 @@ class Control:
         rospy.init_node("control_node")
         self.tajectory_sub =  rospy.Subscriber("/trajectory", Points, self.control)
         self.steering_pub = rospy.Publisher("/control/steering", Float32, queue_size=1)
+        self.steering_angle_pub = rospy.Publisher("/control/steering_angle", Float32, queue_size=1)
         self.target_pub = rospy.Publisher("/control/target", Point, queue_size=1)
 
         self.WHEELBASE_LEN = 15 #cm
-        self.PURE_PURSUIT_L = 30 #cm
+        self.PURE_PURSUIT_L = 100 #cm
 
         self.TURN_THRESHOLDS = [
             (1.0,   0.00),    # TURN_MIN
@@ -49,6 +50,7 @@ class Control:
         tx, ty = target
         arc_curvature = math.degrees((2*tx) / (self.PURE_PURSUIT_L**2))
         steering_angle = math.atan(arc_curvature * self.WHEELBASE_LEN)
+        self.steering_pub.publish(Float32(steering_angle))
         
         turn_heading = 1 if steering_angle >= 0 else -1
         abs_steering_angle = abs(steering_angle)
