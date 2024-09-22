@@ -66,11 +66,8 @@ class ConeEstimation:
         detections_left = self.detect_cones(left_frame)
         detections_right = self.detect_cones(right_frame)
 
-        if not detections_left and not detections_right:
-            print("No cone detections.")
-            return
-        elif not detections_right or not detections_right:
-            print("No cone detections on one of the frames.")
+        if not detections_right or not detections_right:
+            print("No cone detections on left or right frame/s.")
             return
         
         # Right box indices
@@ -141,10 +138,11 @@ class ConeEstimation:
                     for id, detection_left in enumerate(detections_left)
                 ]
                 cone_estimates_msg = ConeEstimates()
-                cone_estimates_msg.cones = []
                 for future in as_completed(futures):
                     try:
-                        cone_estimates_msg.cones.append(future.result())
+                        res = future.result()
+                        if res is not None:
+                            cone_estimates_msg.cones.append(future.result())
                     except Exception as e:
                         print(f"exception while processing detection: {e}")
 
