@@ -2,7 +2,7 @@
 
     <include file="$(find operation)/launch/stereo.launch"/>
 
-    <node pkg="perception" type="v1Estimation.py" name="cone_est" output="screen">
+    <node pkg="perception" type="cone_estimation.py" name="cone_est" output="screen">
     </node>
 
     <node pkg="planning" type="v0.py" name="planning" output="screen">
