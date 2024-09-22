@@ -54,7 +54,7 @@ class ConeEstimation:
         self.benchmark_interval = 10 #sec
         self.last_benchmark_time = time.time()
 
-        self.visualize = False
+        self.debug = True
 
     def cone_estimation(self, left_msg, right_msg):
         start_time = time.time()
@@ -116,25 +116,22 @@ class ConeEstimation:
                 continue
             points_3d = self.triangulate_points(pts1, pts2)
 
-            # Calculate median of the filtered points
+            # calc. median of triangulated points
             median_points = np.median(points_3d, axis=0)
             median_points[0] = -median_points[0]  # Flip sign on X
             median_points /= 10  # Scale to cm
 
-            # Append the result to cones list
+            # create ros msg
             cone_estimate_msg = ConeEstimate()
             cone_estimate_msg.id = id
             cone_estimate_msg.x = median_points[0]
             cone_estimate_msg.y = median_points[2]
             cone_estimates_msg.cones.append(cone_estimate_msg)
 
-            if self.visualize:
-                print(f"id: {id}, (x,y): ({median_points[0]}, {median_points[2]})")
-                self.visualize_frames(left_frame, right_frame)
-                self.visualize_bounding_box(left_frame, bbox_left, "Detected Left Bounding Box")
-                self.visualize_bounding_box(right_frame, bbox_right, "Propagated Right Bounding Box")
-                self.visualize_sift_features(left_frame, right_frame, keypoints_left, keypoints_right)
-                self.visualize_sift_matches(left_frame, right_frame, keypoints_left, keypoints_right, good_matches)
+            # visualize every step of the pipeline
+            if self.debug:
+                self.debug_pipeline(left_frame, right_frame, bbox_left, bbox_right, 
+                                    keypoints_left, keypoints_right, good_matches)
 
         self.cone_pub.publish(cone_estimates_msg)
 
@@ -145,15 +142,15 @@ class ConeEstimation:
         total_pipeline_time = total_time_end - start_time
         self.total_time.append(total_pipeline_time)
 
-        if self.visualize:
-            self.visualize_cone_estimates(cone_estimates_msg)
-            rospy.signal_shutdown("Shutting down after one run.")
-            
         # Benchmarking
         current_time = time.time()
         if current_time - self.last_benchmark_time >= self.benchmark_interval:
             self.print_benchmark_info()
             self.last_benchmark_time = current_time
+
+        if self.debug:
+            self.plot_cone_estimates(cone_estimates_msg)
+            rospy.signal_shutdown("Shutting down after one run.")
         
     def get_bbox(self, detection, width_scale=0.8):
         """Calculate bounding box coordinates from a detection object."""
@@ -234,50 +231,9 @@ class ConeEstimation:
 
         return points3D.T
 
-    def visualize_frames(self, left_frame, right_frame):
-        """Visualize the left and right camera frames."""
-        cv2.imshow("Left Frame", left_frame)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-        cv2.imshow("Right Frame", right_frame)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-    def visualize_bounding_box(self, frame, bbox, title="Bounding Box"):
-        """Visualize the bounding box on a frame."""
-        x, y, w, h = bbox
-        frame_copy = frame.copy()
-        cv2.rectangle(frame_copy, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        cv2.imshow(title, frame_copy)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-    def visualize_sift_features(self, left_frame, right_frame, keypoints_left, keypoints_right):
-        """Visualize the SIFT features on both frames."""
-        left_with_features = cv2.drawKeypoints(left_frame, keypoints_left, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        right_with_features = cv2.drawKeypoints(right_frame, keypoints_right, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        cv2.imshow("Left SIFT Features", left_with_features)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-        cv2.imshow("Right SIFT Features", right_with_features)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-    def visualize_sift_matches(self, left_frame, right_frame, keypoints_left, keypoints_right, matches):
-        """Visualize matched SIFT features between left and right frames."""
-        matches_img = cv2.drawMatches(left_frame, keypoints_left, right_frame, keypoints_right, matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        cv2.imshow("SIFT Feature Matches", matches_img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-    def visualize_cone_estimates(self, cone_estimates_msg):
-        """Plot the cone estimates in a 2D plot."""
-
+    def plot_cone_estimates(self, cone_estimates_msg):
+        """Plot cone estimates msg"""
         plt.figure(figsize=(6, 6))
-        xs = [cone.x for cone in cone_estimates_msg.cones]
-        ys = [cone.y for cone in cone_estimates_msg.cones]
         for cone in cone_estimates_msg.cones:
             plt.scatter(cone.x, cone.y, c='orange')
             plt.text(cone.x, cone.y+3, f'{cone.id}: ({cone.x:.2f}, {cone.y:.2f})', fontsize=9, ha='right')
@@ -289,6 +245,34 @@ class ConeEstimation:
         plt.legend()
         plt.grid(True)
         plt.show()
+
+    def debug_pipeline(self, left_frame, right_frame, bbox_left, bbox_right, 
+                          keypoints_left, keypoints_right, good_matches):
+        
+         # Visualize bounding boxes
+        left_frame_copy = left_frame.copy()
+        right_frame_copy = right_frame.copy()
+        
+        cv2.rectangle(left_frame_copy, (bbox_left[0], bbox_left[1]), 
+                    (bbox_left[0] + bbox_left[2], bbox_left[1] + bbox_left[3]), (0, 255, 0), 2)
+        cv2.rectangle(right_frame_copy, (bbox_right[0], bbox_right[1]), 
+                    (bbox_right[0] + bbox_right[2], bbox_right[1] + bbox_right[3]), (0, 255, 0), 2)
+
+        # Visualize features
+        left_with_features = cv2.drawKeypoints(left_frame_copy, keypoints_left, None, 
+                                            flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        right_with_features = cv2.drawKeypoints(right_frame_copy, keypoints_right, None, 
+                                                flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+        combined_frame = cv2.hconcat([left_with_features, right_with_features])
+        cv2.imshow("BBoxes and Features", combined_frame)
+        cv2.waitKey(0)
+
+        # feature matches
+        matches_img = cv2.drawMatches(left_frame, keypoints_left, right_frame, keypoints_right, 
+                                      good_matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        cv2.imshow("SIFT Feature Matches", matches_img)
+        cv2.waitKey(0)
 
     def print_benchmark_info(self):
         def print_avg_time(name, times):
