@@ -72,6 +72,8 @@ class ConeEstimation:
         
         # Right box indices
         right_detection_matches = self.bounding_box_matching(detections_left, detections_right)
+        if right_detection_matches is None:
+            return
 
         cone_estimates_msg = self.parallel_process_detections(detections_left, detections_right, right_detection_matches, 
                                                               left_frame, right_frame)
@@ -163,19 +165,25 @@ class ConeEstimation:
         h = int(detection.Height)
         return (x, y, w, h)
 
-    def bounding_box_matching(self, left_detections, right_detections):
+    def bounding_box_matching(self, left_detections, right_detections, threshold_dist=50):
         """
         Match bounding boxes from two different frames based on horizontal center dist.
         Used when performing object detection on both L and R frames seperately.
         """
-        # TODO: Add edge case where the cone is visible in only one frame.
+        if len(left_detections) != len(right_detections):
+            return None
+        
         left_centers_x = torch.tensor([d.Center[0] for d in left_detections], dtype=torch.float)
         right_centers_x = torch.tensor([d.Center[0] for d in right_detections], dtype=torch.float)
         horizontal_differences = (left_centers_x[:, None] - right_centers_x[None, :]).abs()
         # best matched index for each left box
         best_right_matches = torch.argmin(horizontal_differences, dim=1)
+        min_distances = torch.min(horizontal_differences, dim=1).values
 
-        return best_right_matches
+        valid_matches = [match if distance <= threshold_dist else -1
+                         for match, distance in zip(best_right_matches, min_distances)]
+
+        return valid_matches
     
     @benchmark('propagation')
     def bounding_box_propagation(self, bbox, left_frame, right_frame):
