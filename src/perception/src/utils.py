@@ -40,6 +40,7 @@ def plot_cone_estimates(cone_estimates_msg):
     plt.grid(True)
     plt.show()
 
+
 def debug_pipeline(left_frame, right_frame, bbox_left, bbox_right, 
                         keypoints_left, keypoints_right, good_matches):
     
@@ -92,8 +93,8 @@ def print_benchmark_info(_):
         if times:
             avg_time = np.mean(times)
             print(f"Avg. {name} Time: {avg_time:.0f} ms ({1000/avg_time:.2f} Hz)")
-
-    print("\nBenchmark Information:")
+    if benchmark_times['detect']:
+        print("\nBenchmark Information:")
     for name, times in benchmark_times.items():
         if times:
             print_avg_time(name.capitalize(), times)

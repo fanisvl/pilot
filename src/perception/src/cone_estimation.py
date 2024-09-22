@@ -17,7 +17,8 @@ import numpy as np
 import time
 import yaml
 from utils import get_cam_info, plot_cone_estimates, debug_pipeline, print_benchmark_info, benchmark
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 class ConeEstimation:
     def __init__(self):
@@ -52,6 +53,7 @@ class ConeEstimation:
 
         # debug mode
         self.debug = rospy.get_param('~debug', False)
+        self.lock = threading.Lock() # needed for displaying in debug mode
 
     @benchmark('total')
     def cone_estimation(self, left_msg, right_msg):
@@ -74,54 +76,79 @@ class ConeEstimation:
         # Right box indices
         right_detection_matches = self.bounding_box_matching(detections_left, detections_right)
 
-        for id, detection_left in enumerate(detections_left):
-            bbox_left = self.get_bbox(detection_left) # x,y,w,h
-            
-            detection_right = detections_right[right_detection_matches[id]]
-            bbox_right = self.get_bbox(detection_right)
-            if bbox_right is None:
-                continue
-
-            # SIFT Feature Extraction
-            keypoints_left, descriptors_left = self.extract_sift_features(left_frame, bbox_left)
-            keypoints_right, descriptors_right = self.extract_sift_features(right_frame, bbox_right)
-
-            # SIFT Feature matching
-            good_matches = self.match_features(descriptors_left, descriptors_right)
-            if good_matches is None:
-                continue
-
-            # Triangulation
-            pts1 = np.float32([keypoints_left[m.queryIdx].pt for m in good_matches])
-            pts2 = np.float32([keypoints_right[m.trainIdx].pt for m in good_matches])
-            if len(pts1) < 1 or len(pts2) < 1:
-                print(f"(id: {id}): Not enough good SIFT feature matches")
-                continue
-            points_3d = self.triangulate_points(pts1, pts2)
-
-            # calc. median of triangulated points
-            median_points = np.median(points_3d, axis=0)
-            median_points /= 10  # scale to cm
-            median_points[0] = -median_points[0]  # Flip sign on X
-            median_points[0] -= 3 # stereo cam baseline is 6cm, sift x to approximate vehicle world frame
-
-            # create ros msg
-            cone_estimate_msg = ConeEstimate()
-            cone_estimate_msg.id = id
-            cone_estimate_msg.x = median_points[0]
-            cone_estimate_msg.y = median_points[2]
-            cone_estimates_msg.cones.append(cone_estimate_msg)
-
-            # visualize every step of the pipeline
-            if self.debug:
-                debug_pipeline(left_frame, right_frame, bbox_left, bbox_right, 
-                                keypoints_left, keypoints_right, good_matches)
+        cone_estimates_msg = self.parallel_process_detections(detections_left, detections_right, right_detection_matches, 
+                                                              left_frame, right_frame)
 
         self.cone_pub.publish(cone_estimates_msg)
 
         if self.debug:
             plot_cone_estimates(cone_estimates_msg)
             rospy.signal_shutdown("Shutting down after one run.")
+
+    def process_detection(self, id, detection_left, detection_right, left_frame, right_frame):
+        bbox_left = self.get_bbox(detection_left)
+        bbox_right = self.get_bbox(detection_right)
+        if bbox_right is None:
+            return None
+
+        # SIFT Feature Extraction
+        keypoints_left, descriptors_left = self.extract_sift_features(left_frame, bbox_left)
+        keypoints_right, descriptors_right = self.extract_sift_features(right_frame, bbox_right)
+
+        # SIFT Feature matching
+        good_matches = self.match_features(descriptors_left, descriptors_right)
+        if good_matches is None:
+            return None
+
+        # Triangulation
+        pts1 = np.float32([keypoints_left[m.queryIdx].pt for m in good_matches])
+        pts2 = np.float32([keypoints_right[m.trainIdx].pt for m in good_matches])
+        if len(pts1) < 1 or len(pts2) < 1:
+            print(f"(id: {id}): Not enough good SIFT feature matches")
+            return None
+
+        points_3d = self.triangulate_points(pts1, pts2)
+        
+        # calc. median of triangulated points
+        median_points = np.median(points_3d, axis=0)
+        median_points /= 10  # scale to cm
+        median_points[0] = -median_points[0]  # Flip sign on X
+        median_points[0] -= 3  # stereo cam baseline is 6cm, sift x to approximate vehicle world frame
+
+        # create ros msg
+        cone_estimate_msg = ConeEstimate()
+        cone_estimate_msg.id = id
+        cone_estimate_msg.x = median_points[0]
+        cone_estimate_msg.y = median_points[2]
+
+        # visualize every step of the pipeline
+        if self.debug:
+            with self.lock:
+                debug_pipeline(left_frame, right_frame, bbox_left, bbox_right,
+                            keypoints_left, keypoints_right, good_matches)
+
+        return cone_estimate_msg
+
+    def parallel_process_detections(self, detections_left, detections_right, right_detection_matches, left_frame, right_frame):
+        with ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(self.process_detection, 
+                                    id, 
+                                    detection_left, 
+                                    detections_right[right_detection_matches[id]], 
+                                    left_frame, 
+                                    right_frame)
+                    for id, detection_left in enumerate(detections_left)
+                ]
+                cone_estimates_msg = ConeEstimates()
+                cone_estimates_msg.cones = []
+                for future in as_completed(futures):
+                    try:
+                        cone_estimates_msg.cones.append(future.result())
+                    except Exception as e:
+                        print(f"exception while processing detection: {e}")
+
+        return cone_estimates_msg
 
     @benchmark('detect')
     def detect_cones(self, frame):
