@@ -1,4 +1,5 @@
 sudo docker run -it --name autopilot \
+  --privileged \
   --runtime nvidia \
   --net=host \
   -e DISPLAY=$DISPLAY\
