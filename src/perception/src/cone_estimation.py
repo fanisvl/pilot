@@ -54,7 +54,8 @@ class ConeEstimation:
         self.benchmark_interval = 10 #sec
         self.last_benchmark_time = time.time()
 
-        self.debug = True
+        # debug mode
+        self.debug = rospy.get_param('~debug', False)
 
     def cone_estimation(self, left_msg, right_msg):
         start_time = time.time()
