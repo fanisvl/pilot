@@ -13,7 +13,7 @@ class ConeEstimation:
     def __init__(self):
         rospy.init_node('cone_estimator_node', anonymous=True)
         self.bridge = CvBridge()
-        self.model_src = 'models/yolov8n-V2.pt'
+        self.model_src = '/workspace/pilot/src/perception/src/models/yolov8n-keypts.pt'
         self.cone_detection_model = YOLO(self.model_src)
         self.sub = rospy.Subscriber("/left_cam/raw", Image, self.cone_estimation)
         self.cone_pub = rospy.Publisher('/cone_estimates', ConeEstimates, queue_size=1)
