@@ -35,7 +35,7 @@ class ConeEstimation:
             if tvec is None:
                 continue
 
-            tvec /= 1000  # Convert from mm to m
+            tvec /= 100  # Convert from mm to cm
             # PnP world frame is base of cone, 
             # so tvec corresponds to position of cone relative to cam
             x, z = tvec[0][0], tvec[2][0]
