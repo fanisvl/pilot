@@ -35,10 +35,14 @@ class ConeEstimation:
             if tvec is None:
                 continue
 
-            tvec /= 100  # Convert from mm to cm
+            tvec /= 10  # Convert from mm to cm
             # PnP world frame is base of cone, 
             # so tvec corresponds to position of cone relative to cam
             x, z = tvec[0][0], tvec[2][0]
+
+            # assuming that we're using the left cam, 
+            # IMX219-83 camera baseline is 6cm
+            x += 3 # from left cam world frame, to vehicle world frame
 
             msg = self.cone_estimate_msg(id, x, z)
             cone_estimates_msg.cones.append(msg)
