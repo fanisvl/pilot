@@ -2,13 +2,13 @@
 
     <include file="$(find operation)/launch/stereo.launch"/>
 
-    <node pkg="perception" type="cone_estimation.py" name="cone_est" output="screen">
+    <node pkg="perception" type="stereo_estimation.py" name="cone_est" output="screen">
     </node>
 
     <node pkg="planning" type="planning.py" name="planning" output="screen">
     </node>
     
-    <node pkg="control" type="control.py" name="control" output="screen">
+    <node pkg="control" type="pure_pursuit_control.py" name="control" output="screen">
     </node>
 
 </launch>
