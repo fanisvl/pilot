@@ -17,7 +17,7 @@ class ImageSaver:
         self.left_image = None
         self.right_image = None
         self.image_count = 0
-        self.interval = 5
+        self.interval = interval
         self.save_dir = save_dir
 
         # Timer to save images every 5 seconds
