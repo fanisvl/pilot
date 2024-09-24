@@ -23,8 +23,8 @@ import threading
 class ConeEstimation:
     def __init__(self):
         self.net = detectNet(
-            model="/workspace/pilot/src/perception/src/models/v1.onnx",
-            labels="/workspace/pilot/src/perception/src/models/labels.txt",
+            model="/workspace/pilot/src/perception/src/models/mobilenet-od.onnx",
+            labels="/workspace/pilot/src/perception/src/models/mobilenet_labels.txt",
             input_blob="input_0",
             output_cvg="scores",
             output_bbox="boxes",
@@ -111,7 +111,7 @@ class ConeEstimation:
         # calc. median of triangulated points
         median_points = np.median(points_3d, axis=0)
         median_points /= 10  # scale to cm
-        median_points[0] = -median_points[0] # flip sign on x (due to gstreamer issues)
+        median_points[0] = -median_points[0] # flip sign on x (due to gstreamer limitations)
 
         # create ros msg
         cone_estimate_msg = ConeEstimate()
