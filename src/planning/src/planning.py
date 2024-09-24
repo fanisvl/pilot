@@ -1,25 +1,54 @@
 #!/usr/bin/python3
 
+import rospy
 from messages.msg import ConeEstimates, ConeEstimate, Point, Points
 import numpy as np
 import math
-import rospy
-
-""""
-V0
-
-A planner that's as simple as possible.
-Only requires a pair of cones. Find the midpoint of the closest pair and generate a linear trajectory.
-"""
+from scipy.spatial import Delaunay
 
 class Planner:
     def __init__(self):
         rospy.init_node('planning_node')
         self.target_pub = rospy.Publisher('/trajectory', Points, queue_size=1)
-
-        # Initialize Publisher and Subscriber
         self.cone_estimates_sub = rospy.Subscriber('/cone_estimates', ConeEstimates, self.plan, queue_size=1)
 
+    def plan(self, estimates):
+        estimates = [(cone.x, cone.y) for cone in estimates.cones]
+        estimates = self.remove_duplicate_estimates(estimates, 3)
+            
+        path_points = []
+        if len(estimates) < 2:
+            return 
+        elif len(estimates) < 3:
+            #TODO: Check if they're actually a valid pair and not noise
+            p1, p2 = self.find_closest_cone_pair(estimates)
+            path_points.append(self.calculate_midpoint(p1, p2))
+        else:
+            points_array = np.array(estimates)
+            triangulation = Delaunay(points_array)
+            for triangle in triangulation.simplices:
+                for i in range(3):
+                    v1 = points_array[triangle[i]]
+                    v2 = points_array[triangle[(i + 1) % 3]]
+                    midpoint = (v1 + v2) / 2
+                    # Filter for horizontally aligned edges 
+                    #TODO: This will probably fail for more complicated cases
+                    if abs(v1[0] - v2[0]) > abs(v1[1] - v2[1]):  # edge is more horizontal than vertical
+                        path_points.append(midpoint)
+        if not path_points:
+            return
+        
+        # sort based on distance from (0,0)
+        path_points.sort(key=lambda p: math.sqrt(p[0]**2 + p[1]**2))
+        trajectory_msg = Points()
+        trajectory_msg.points = []
+        current_pos = (0,0)
+        for next_point in path_points:
+            trajectory_msg.points.extend(self.generate_trajectory(current_pos, next_point, samples=5))
+            current_pos = next_point
+
+        self.target_pub.publish(trajectory_msg)
+    
     def remove_duplicate_estimates(self, estimates, threshold=0.5):
         """
         Sometimes cone estimation returns duplicate estimates.
@@ -41,7 +70,6 @@ class Planner:
         distances = [(np.sqrt(estimate[0]**2 + estimate[1]**2), estimate) for estimate in estimates]
         distances.sort(key=lambda d: d[0])
         closest_pair = [distances[0][1], distances[1][1]]
-
         return closest_pair
     
     def calculate_midpoint(self, p1, p2):
@@ -58,41 +86,18 @@ class Planner:
         x2, y2 = p2
         trajectory = []
         for i in range(samples + 1):
-            t = i / samples
+            t = i / samples # te[0,1] so p1 and p2 are included in the trajectory
             x = x1 + t * (x2 - x1)
             y = y1 + t * (y2 - y1)
-            trajectory.append((x, y))
+            trajectory.append(self.point_msg(x,y))
         return trajectory
 
-    def plan(self, estimates):
-        estimates = [(cone.x, cone.y) for cone in estimates.cones]
-        estimates = self.remove_duplicate_estimates(estimates, 3)
-        # estimates = [(28.47, 112.4), (-17.17, 99.25), (21.38, 160.38)] # demo
-            
-        path_points = []
-        if len(estimates) < 2:
-            return 
-        else:
-            #TODO: Check if they're actually a valid pair based on distance between them
-            p1, p2 = self.find_closest_cone_pair(estimates)
-            path_points.append(self.calculate_midpoint(p1, p2))
+    def point_msg(self, x, y):
+        p = Point()
+        p.x = x
+        p.y = y
+        return p
 
-        # TODO
-        # With the current logic, path_points only contains one element so this is redundant.
-        # Will probably need to add a look ahead of at least two goal points,
-        # as we get closer to the goal point.
-        closest_path_point = min(path_points, key=lambda p: math.sqrt(p[0]**2 + p[1]**2))
-
-        trajectory_points = self.generate_trajectory((0,0), closest_path_point, samples=10)
-        trajectory_msg = Points()
-
-        for point in trajectory_points:
-            point_msg = Point()
-            point_msg.x, point_msg.y = point[0], point[1]
-            trajectory_msg.points.append(point_msg)
-
-        self.target_pub.publish(trajectory_msg)
-    
 if __name__ == '__main__':
     node = Planner()
     rospy.spin()
