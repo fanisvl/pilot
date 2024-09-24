@@ -26,6 +26,13 @@ class Control:
         ]
         rospy.loginfo("Control initialized.")
 
+    def control(self, trajectory_msg):
+        trajectory_points = trajectory_msg.points
+        target = self.pure_pursuit(trajectory_points, self.PURE_PURSUIT_L)
+        steering = self.steering(target)
+
+        self.steering_pub.publish(Float32(data=steering))
+        self.target_pub.publish(Point(x=target[0], y=target[1]))
 
     def pure_pursuit(self, trajectory_points, L=100):
         while L > 0:
@@ -86,20 +93,6 @@ class Control:
         y_interp = y_inner + t * vy
 
         return (x_interp, y_interp)
-
-    def control(self, trajectory_msg):
-        """
-        For speed just use a very low value constant
-        INPUT: Trajectory points from planning
-        OUTPUT: Steering commands to actuators
-        """
-
-        trajectory_points = trajectory_msg.points
-        target = self.pure_pursuit(trajectory_points, self.PURE_PURSUIT_L)
-        steering = self.steering(target)
-
-        self.steering_pub.publish(Float32(steering))
-        self.target_pub.publish(Point(x=target[0], y=target[1]))
 
 if __name__ == "__main__":
     node = Control()
