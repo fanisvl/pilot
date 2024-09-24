@@ -111,7 +111,6 @@ class ConeEstimation:
         # calc. median of triangulated points
         median_points = np.median(points_3d, axis=0)
         median_points /= 10  # scale to cm
-        median_points[0] = -median_points[0]  # Flip sign on X
 
         # create ros msg
         cone_estimate_msg = ConeEstimate()

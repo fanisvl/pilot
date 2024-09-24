@@ -3,12 +3,15 @@
     <include file="$(find ros_deep_learning)/launch/video_source.ros1.launch">
         <arg name="input" value="csi://1" />
         <arg name="node_name" value="left_cam" />
+        <arg name="input_flip" default="rotate-180"/>
     </include>
 
 
     <include file="$(find ros_deep_learning)/launch/video_source.ros1.launch">
         <arg name="input" value="csi://0" />
         <arg name="node_name" value="right_cam" />
+	<arg name="input_flip" default="rotate-180"/>
+
     </include>
 
 </launch>
