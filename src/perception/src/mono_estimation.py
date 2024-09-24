@@ -38,7 +38,7 @@ class ConeEstimation:
             tvec /= 10  # Convert from mm to cm
             # PnP world frame is base of cone, 
             # so tvec corresponds to position of cone relative to cam
-            x, z = tvec[0][0], tvec[2][0]
+            x, z = -tvec[0][0], tvec[2][0] # x is flipped (due to gstreamer limitations)
 
             # assuming that we're using the left cam, 
             # IMX219-83 camera baseline is 6cm
