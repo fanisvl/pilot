@@ -1,23 +1,56 @@
 This project implements a simple pipeline inspired by the Formula Student autonomous racing competition, \
 based on **ROS** that includes **perception**, **planning** and **control** modules.
 
-### Perception
+# Perception
 
-#### Stereo
-> Left Frame, Right Frame
-> Cone Detection with Mobilenet
-2 design options were explored:
-a) Do cone detection on left frame only and then do bounding box propagation using
-   either a tracker like CSRT (accurate but slow) to find the bbox in the right image or
-   by detecting SIFT Features and projecting them to the right frame, knowing the 
-   camera intrinsics, then drawing a bounding box around the projected features.
+## Stereo Pipeline
+The stereo pipeline utilizes the epipolar constraints of the stereo camera to estimate the position of the cones.
+Thus, the results depend on the accuracy of stereo calibration. 
+In order to estimate the position of the cones relative to the vehicle, we first have to detect the cones in both frames.
+We can then extract and match features between corresponding cones, and finally use triangulation to estimate the location of each point
+according to the vehicle world frame. \
+Parallelization was utilized for SIFT Feature extraction, feature matching and triangulation.
 
-b) Do cone detection on both frames
+Two approaches were explored:
+### 1A. Cone Detection on Both Frames
+   This is the simplest approach. \
+   An **SSD-Mobilenet** network was trained on a custom dataset of ~50 images (augmented to ~100). \
+   The model can achieve inference at ~10Hz for both frames on the Jetson Nano, with TensorRT acceleration.
+   Although functional for test pursposes, due to the low amount of data and the low amount of variance within the data (the cones were placed at a max of ~2m from the camera due to space constraints),
+   the model does not generalize well. It's prediction confidence drops significantly as the distance of cones grows. A more diverse dataset should be collected.
+     
+### 1B. Cone detection on left frame, and bounding box propagation to the right frame. \
+   Bounding box propagation can be achieved by:
+   
+   a. **Using a model like YOLOV8** _by ultralytics_, we can detect _pre-determined keypoints_[1] that define the cone.
+        We can then utilize the epipolar constraints of our stereo camera to project the keypoints to the right
+        frame, and create a new bounding box around them. Due to a low amount of data, keypoint regression was not robust enough and this approach was not chosen for the stereo pipeline. \
+        However, this approach was used for the [Monocular Pipeline](#monocular-pipeline). \
+       <img src="https://github.com/user-attachments/assets/09043185-6169-49ae-a02e-dc264210cad9" width="200"> 
+       *AMZ Racing [[1]](https://arxiv.org/abs/1905.05150)*
 
-> SIFT Feature Extraction & Feature matching between cone pairs on left and right frame.
-> Triangulation using the stereo camera intrinsics
+       
+   b. **Using an object tracker**, like **CSRT** to track the cone from the left frame to the right frame. \
+       While CSRT was able to track the cone bounding box to the right frame very accurately,
+       it's performance wasn't sufficient for real-time at ~2Hz on the Jetson Nano. \
+       The **MOSSE** tracker was also evaluated, and while it was faster, it's accuracy wasn't sufficient. \
+       It's important that bounding boxes are as accurate as possible, to avoid detecting background features
+       in the next steps of the pipeline.
 
-#### Mono Pipeline
+
+### 2. SIFT Feature Extraction & Feature matching between cone pairs on left and right frame.
+   SIFT Features were extracted for each frame, and then matched in order to obtain points that we can
+   later use for triangulation. Although SIFT is accurate, it presents a bottleneck performing at ~7Hz on the Jetson Nano.
+   Faster feature extraction methods like ORB and BRIEF should be explored.
+<img src="https://github.com/user-attachments/assets/8dcf6489-5ad1-47bc-9978-2513570d6220" width="1000">
+
+
+### 3. Triangulation using epipolar constraints.
+### Results (in cm)
+<img src="https://github.com/user-attachments/assets/8ab8eeb0-61f6-4dbd-82c6-5eb94e9645fb" width="400"> 
+
+
+## Monocular Pipeline
 > Image
 > Keypoint Regression on cones with YOLO
 > 2d image keypoints are fed into PnP along with their 3d correpondences calculated with a world frame 
