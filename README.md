@@ -1,74 +1,60 @@
-# autopilot
+This project implements a simple pipeline inspired by the Formula Student autonomous racing competition, \
+based on **ROS** that includes **perception**, **planning** and **control** modules.
 
-Before starting, run this command to make GUIs work inside a docker container:  
-```xhost +local:docker```
+### Perception
 
-1. Clone the repo
+#### Stereo
+> Left Frame, Right Frame
+> Cone Detection with Mobilenet
+2 design options were explored:
+a) Do cone detection on left frame only and then do bounding box propagation using
+   either a tracker like CSRT (accurate but slow) to find the bbox in the right image or
+   by detecting SIFT Features and projecting them to the right frame, knowing the 
+   camera intrinsics, then drawing a bounding box around the projected features.
 
-2. Execute command - This pull the correct image, run a container  and mount the autopilot dir to the docker container  
-   Execute this command inside **/autopilot**  
-  No GPU
-  ```
-  docker run -it \
-  --net=host \
-  --ulimit nofile=1024:524288 \
-  --env="DISPLAY=:0" \
-  --env="QT_X11_NO_MITSHM=1" \
-  -v "$HOME/.Xauthority:/root/.Xauthority:ro" \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
-  --device=/dev/video0:/dev/video0 \
-  --device=/dev/dri:/dev/dri \
-  -v ~/repos/autopilot:/workspace/autopilot \
-  fanisvl/ub20-py38-ros1noetic-pytorch:latest \
-  bash
-  ```
-  Install CPU Pytorch once inside the container
-  ```
-    pip3 uninstall torch torchvision
-    pip3 install torch torchvision
-  ```
+b) Do cone detection on both frames
+
+> SIFT Feature Extraction & Feature matching between cone pairs on left and right frame.
+> Triangulation using the stereo camera intrinsics
+
+#### Mono Pipeline
+> Image
+> Keypoint Regression on cones with YOLO
+> 2d image keypoints are fed into PnP along with their 3d correpondences calculated with a world frame 
+  at the base of the cone, as well as the camera intrinsics
+  Knowing that the 3d points have a world frame that's at the base of the cone,
+  the translation vector output of PnP will correspond to the position of the cone
+  relative to the camera.
+
+Limitations:
+The cone detection model (YOLOv8-nano) was pre-trained on the FSOCO dataset,
+which represents WEMAS cones (used in FS Germany).
+The model was later fine tuned to my cones,
+but due to the low amount of labeled data (~50 images, augmented to ~100)
+the model isn't as robust as it should be.
+
+### Planning
+Deulaunay Triangulation to find mid points **TODO: Get a delaunay plot example**
+Points that represent a linear trajectory between midpoints are generated
+and published for the Pure pusuit algorithm.
+
+### Control
+**TODO: Add the map plot**
+Pure Pursuit
+Given a set of points that represent a trajectory, and a Lookahead Distance,
+a target point is calculated and used to find the necessary steering angle.
+The steering angle is normalized to [-1,1] and translated to the corresponding
+PWM value to be sent to the steering servo.
 
 
-Jetson Nano
-  ```
-docker run -it --net=host --privileged  --runtime nvidia --gpus all \
-  --env="NVIDIA_DRIVER_CAPABILITIES=all" \
-  --env="DISPLAY=$DISPLAY" \
-  --env="QT_X11_NO_MITSHM=1" \
-  --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-  --volume "$HOME/.Xauthority:/root/.Xauthority:ro" \
-  --volume /tmp/argus_socket:/tmp/argus_socket \
-  --device=/dev/video0:/dev/video0 \
-  --device=/dev/video1:/dev/video1 \
-  -v ~/workspace/autopilot:/workspace/autopilot \
-  fanisvl/ub20-py38-ros1noetic-pytorch:latest \
-  bash
-  ```
+# Hardware
+RC car img
+StereoCam - imu - > Jetson Nano - > PCA9685 PWM Driver - > ESC & Steering
 
-3. Build ROS autopilot catkin workspace & packages - **inside workspace/autopilot**
-   ```catkin_make```
-   ```source devel/setup.bash```
-   ```echo "source /workspace/autopilot/devel/setup.bash" >> ~/.bashrc" ```
 
-# Common Erros
-
-#### Authorization required, but no authorization protocol specified. This error usually occurs when trying to launch a GUI inside docker.
-```
-Authorization required, but no authorization protocol specified
-could not connect to display :0
-This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix  this problem.
-Available platform plugins are: eglfs, linuxfb, minimal, minimalegl, offscreen, vnc, xcb.
-```
-**Fix:** Run ```xhost +local:docker``` from a local terminal.
-
-#### bash: ros command not found
-**Fix:** ```source /opt/ros/$ROS_DISTRO/setup.bash```
-
-#### Visual Studio Code when trying to write to mounted file:
-```
-Failed to save Insufficient permissions. Select 'Retry as Sudo' to retry as superuser.
-```
-**Fix:** ```sudo chown -R $USER .```
-
-#### roscore eats all the RAM
-echo "ulimit -Sn 524288 && ulimit -Hn 524288" >> ~/.bashrc
+\
+references \
+AMZ Racing [[1]](https://arxiv.org/abs/1905.05150), [[2]](https://arxiv.org/pdf/1902.02394), \
+Chalmers FS [[1]](https://arxiv.org/pdf/2210.10933), \
+KA-Racing [[1]](https://arxiv.org/pdf/2210.10933), [[2]](https://arxiv.org/pdf/2010.02828) \
+[FSOCO-Dataset](https://www.fsoco-dataset.com/overview/)
