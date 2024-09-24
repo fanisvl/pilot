@@ -29,45 +29,42 @@ def plot_cone_estimates(cone_estimates_msg):
     """Plot cone estimates msg"""
     plt.figure(figsize=(6, 6))
     for cone in cone_estimates_msg.cones:
-        plt.scatter(cone.x, cone.y, c='orange')
-        plt.text(cone.x, cone.y+3, f'{cone.id}: ({cone.x:.2f}, {cone.y:.2f})', fontsize=9, ha='right')
+        plt.scatter(cone.x, cone.y, c='orange', s=80, edgecolor='black')
+        plt.text(cone.x+3, cone.y+3, f'{cone.id}: ({cone.x:.2f}, {cone.y:.2f})', fontsize=9, ha='right')
 
-    plt.scatter(0, 0, c='red', marker='x')
+    plt.scatter(0, 0, c='black', marker='x', label='Vehicle')
     plt.xlabel("X (cm)")
     plt.ylabel("Z (cm)")
-    plt.title("Cone Estimation Map")
+    plt.title("Stereo | Cone Estimation Map")
     plt.legend()
     plt.grid(True)
+    plt.axis('equal')
     plt.show()
 
-
 def debug_pipeline(left_frame, right_frame, bbox_left, bbox_right, 
-                        keypoints_left, keypoints_right, good_matches):
+                   keypoints_left, keypoints_right, good_matches):
     
-    # Visualize bounding boxes
-    left_frame_copy = left_frame.copy()
-    right_frame_copy = right_frame.copy()
-    
-    cv2.rectangle(left_frame_copy, (bbox_left[0], bbox_left[1]), 
-                (bbox_left[0] + bbox_left[2], bbox_left[1] + bbox_left[3]), (0, 255, 0), 2)
-    cv2.rectangle(right_frame_copy, (bbox_right[0], bbox_right[1]), 
-                (bbox_right[0] + bbox_right[2], bbox_right[1] + bbox_right[3]), (0, 255, 0), 2)
-
-    # Visualize features
-    left_with_features = cv2.drawKeypoints(left_frame_copy, keypoints_left, None, 
-                                        flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    right_with_features = cv2.drawKeypoints(right_frame_copy, keypoints_right, None, 
-                                            flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-    combined_frame = cv2.hconcat([left_with_features, right_with_features])
-    cv2.imshow("BBoxes and Features", combined_frame)
-    cv2.waitKey(0)
-
-    # feature matches
+    # Draw matches
     matches_img = cv2.drawMatches(left_frame, keypoints_left, right_frame, keypoints_right, 
-                                    good_matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-    cv2.imshow("SIFT Feature Matches", matches_img)
+                                  good_matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    
+    # Get dimensions of the matches image
+    h, w = matches_img.shape[:2]
+    
+    # Draw bounding box on left image
+    cv2.rectangle(matches_img, (bbox_left[0], bbox_left[1]), 
+                  (bbox_left[0] + bbox_left[2], bbox_left[1] + bbox_left[3]), (0, 255, 0), 2)
+    
+    # Draw bounding box on right image (offset by the width of the left image)
+    cv2.rectangle(matches_img, (w // 2 + bbox_right[0], bbox_right[1]), 
+                  (w // 2 + bbox_right[0] + bbox_right[2], bbox_right[1] + bbox_right[3]), (0, 255, 0), 2)
+
+    # Display the image
+    cv2.imshow("Matches and Bounding Boxes", matches_img)
     cv2.waitKey(0)
+    
+    # Save the image
+    cv2.imwrite('matches_and_bboxes.png', matches_img)
 
 benchmark_times = {
     'detect': [],
