@@ -1,6 +1,14 @@
 This project implements a simple pipeline inspired by the Formula Student autonomous racing competition, \
 it's based on **ROS** and it includes **perception**, **planning** and **control** modules.
 
+[Stereo Pipeline](##stereo-pipeline) \
+[Mono Pipeline](##mono-pipeline) \
+[Planning](##planning) \
+[Control](##control) \
+[Hardware](##hardware) \
+[References](##references)
+
+
 # Perception
 
 ## Stereo Pipeline
@@ -15,6 +23,7 @@ Two approaches were explored:
    This is the simplest approach. \
    An **SSD-Mobilenet** network was trained on a custom dataset of ~50 images (augmented to ~100). \
    The model can achieve inference at ~10Hz for both frames on the Jetson Nano, with TensorRT acceleration.
+   Since the IMX219-83 stereo camera does not have hardware synchronization, the TimeSyncrhonizer filter is used.
    Although functional for test pursposes, due to the low amount of data and the low amount of variance within the data (the cones were placed at a max of ~2m from the camera due to space constraints),
    the model does not generalize well. It's prediction confidence drops significantly as the distance of cones increases. A larger and more diverse dataset should be collected.
      
@@ -35,7 +44,7 @@ Two approaches were explored:
 
 Cone detection on both frames was chosen for robustness and simplicity.
 
-### 2. SIFT Feature Extraction & Feature matching between cone pairs in left and right frame.
+### 2. SIFT Feature Extraction & Feature matching between cone pairs in left and right frame
    SIFT Features were extracted for each bounding box in both frames, and then matched in order to obtain points that we can
    later use for triangulation. Although SIFT is accurate, it presents a bottleneck performing at ~7Hz on the Jetson Nano.
    Faster feature extraction methods like ORB and BRIEF should be explored.
@@ -113,21 +122,29 @@ and published for the Pure pusuit algorithm in the control module.
 Clustering was also tested to remove background cone detections and noisy estimates.
 <img src="https://github.com/user-attachments/assets/51ac47a8-9135-4e4a-8f61-1ab79e3b35d1" width="400">
 
-Utilizing SLAM (eg. GraphSLAM) would greatly improve the planning module. 
+_Utilizing SLAM (eg. GraphSLAM) would greatly improve the planning module. [ChalmersFS](https://arxiv.org/pdf/2210.10933)_
 
 ## Control
 Given a set of trajectory points from planning, the control module uses the [Pure Pursuit algorithm](https://www.ri.cmu.edu/pub_files/pub3/coulter_r_craig_1992_1/coulter_r_craig_1992_1.pdf) to pick a target point, and calculate the steering angle required.
 Pure Pursuit has only one parameter L (Lookahead Distance), which defines the distance of our target waypoint.
-The target point is calculated by interpolating between trajectory points inside and outside the circle of radius L, as can be seen here:
-
+The target point is calculated by interpolating between trajectory points inside and outside the circle of radius L, as can be seen in the image below.
 <img src="https://github.com/user-attachments/assets/1910d202-9851-481a-bcb6-d359627af8bf" width="400"> \
 [Penn Engineering](https://www.youtube.com/watch?v=x9s8J4ucgO0)
+
+
+If the lookahead distance is set too small, it can cause aggressive steering as the vehicle constantly adjusts to reach the nearby target point,
+and if the distance is too large, the path may be smoother, but it can result in trajectory tracking errors.
+
+If our environment follows a set of constraints, we can get an idea for what our lookahead parameter should be set to.
+For example [FS-Germany](https://www.formulastudent.de/fileadmin/user_upload/all/2024/important_docs/FSG24_Competition_Handbook_v1.2.pdf) 
+has these conditions for skidpad with tight turns, a smaller lookahead will be required. \
+<img src="https://github.com/user-attachments/assets/a8cb05d3-bfdd-4f96-9d8b-65e9c83e2a77" width="200"> \
 
 The steering angle is normalized to [-1,1] and translated to the corresponding
 PWM value to be sent to steering via the PCA9685 driver.
 <img src="https://github.com/user-attachments/assets/cec1f981-d24d-4803-918f-8af691a10dac" width="400"> 
 
-Controllers like PID and MPC should be explored in the future.
+_Controllers like PID and MPC should be explored in the future._
 
 ## Hardware
 <img src="https://github.com/user-attachments/assets/9d8afad6-7312-4c58-9f20-aa7e0c0533fa" width="800"> 
@@ -139,7 +156,7 @@ The PCA9685 is connected to a Jetson Nano, enabling programmatic control of the 
 The IMX219-83, is used for stereo vision.
 The top section of the car was 3D-printed. [(thingiverse)](https://www.thingiverse.com/thing:2566276)
 
-## references \
+## References 
 AMZ Racing [[1]](https://arxiv.org/abs/1905.05150), [[2]](https://arxiv.org/pdf/1902.02394), \
 Chalmers FS [[1]](https://arxiv.org/pdf/2210.10933), \
 KA-Racing [[1]](https://arxiv.org/pdf/2210.10933), [[2]](https://arxiv.org/pdf/2010.02828) \
