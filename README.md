@@ -1,12 +1,12 @@
 This project implements a simple pipeline inspired by the Formula Student autonomous racing competition, \
 it's based on **ROS** and it includes **perception**, **planning** and **control** modules.
 
-[Stereo Pipeline](##stereo-pipeline) \
-[Mono Pipeline](##mono-pipeline) \
-[Planning](##planning) \
-[Control](##control) \
-[Hardware](##hardware) \
-[References](##references)
+[Stereo Pipeline](#stereo-pipeline) \
+[Mono Pipeline](#mono-pipeline) \
+[Planning](#planning) \
+[Control](#control) \
+[Hardware](#hardware) \
+[References](#references)
 
 
 # Perception
