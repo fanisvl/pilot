@@ -25,16 +25,15 @@ Two approaches were explored:
         We can then utilize the epipolar constraints of our stereo camera to project the keypoints to the right
         frame, and create a new bounding box around them. While this approach was not chosen for the stereo pipeline,
         it was used in the [Monocular Pipeline](#monocular-pipeline).
-
-
        
    b. **Using an object tracker**, like **CSRT** to track the cone from the left frame to the right frame. \
        CSRT was able to track the cone bounding box to the right frame very accurately, but
-       it's performance wasn't sufficient for real-time at ~2Hz on the Jetson Nano. \
+       it's performance wasn't sufficient for real-time at ~4Hz on the Jetson Nano. \
        The **MOSSE** tracker was also evaluated, and while it was faster, it's accuracy wasn't sufficient. 
        It's important that bounding boxes are as accurate as possible, to avoid detecting background features
        in the next steps of the pipeline.
 
+Cone detection on both frames was chosen for robustness and simplicity.
 
 ### 2. SIFT Feature Extraction & Feature matching between cone pairs in left and right frame.
    SIFT Features were extracted for each bounding box in both frames, and then matched in order to obtain points that we can
@@ -42,7 +41,6 @@ Two approaches were explored:
    Faster feature extraction methods like ORB and BRIEF should be explored.
    This process was parallelized for additional performance.
    <img src="https://github.com/user-attachments/assets/e63de212-2284-4f57-840d-143211ca656f" width="1000">
-
 
 
 ### 3. Triangulation using epipolar constraints.
@@ -98,6 +96,7 @@ Same model:
 
 ### Simulation
 Object detection was also tested in the Gazebo simulator using this open source project by a FS team: [eufs_sim](https://gitlab.com/eufs/eufs_sim)
+
 <img src="https://github.com/user-attachments/assets/52d30007-f2fc-43c8-b0a8-9cff093bbb33" width="600"> 
 
 
@@ -105,15 +104,17 @@ Object detection was also tested in the Gazebo simulator using this open source 
 _Note: Planning and Control are still very much under development, and they're currently much simpler than perception.
 Emphasis was first given to perception simply because [Garbage in, garbage Out](https://en.wikipedia.org/wiki/Garbage_in,_garbage_out)_ 
 
-Having a set of cone estimates, Delaunay Triangulation is performed to find path midpoints points.
+Having a set of cone estimates, Delaunay Triangulation is performed to find midpoints between the cone boundary pairs.
 Points that represent a linear trajectory between midpoints are generated
 and published for the Pure pusuit algorithm in the control module.
 <img src="https://github.com/user-attachments/assets/00cb95b2-7a16-4a48-8b5b-f542802cc04d" width="420"> 
 <img src="https://github.com/user-attachments/assets/d12d0292-5f57-4056-98f1-09db5de493e4" width="400"> 
 
-**Future Work:**
-  - Utilizing SLAM (e.g. GraphSLAM)
-  - 
+Clustering was also tested to remove background cone detections and noisy estimates.
+<img src="https://github.com/user-attachments/assets/51ac47a8-9135-4e4a-8f61-1ab79e3b35d1" width="400">
+
+Utilizing SLAM (eg. GraphSLAM) would greatly improve the planning module. 
+
 ## Control
 Given a set of trajectory points from planning, the control module uses the [Pure Pursuit algorithm](https://www.ri.cmu.edu/pub_files/pub3/coulter_r_craig_1992_1/coulter_r_craig_1992_1.pdf) to pick a target point, and calculate the steering angle required.
 Pure Pursuit has only one parameter L (Lookahead Distance), which defines the distance of our target waypoint.
@@ -125,6 +126,8 @@ The target point is calculated by interpolating between trajectory points inside
 The steering angle is normalized to [-1,1] and translated to the corresponding
 PWM value to be sent to steering via the PCA9685 driver.
 <img src="https://github.com/user-attachments/assets/cec1f981-d24d-4803-918f-8af691a10dac" width="400"> 
+
+Controllers like PID and MPC should be explored in the future.
 
 ## Hardware
 <img src="https://github.com/user-attachments/assets/9d8afad6-7312-4c58-9f20-aa7e0c0533fa" width="800"> 
