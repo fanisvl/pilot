@@ -4,17 +4,15 @@ import threading
 import rospy
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
-import numpy as np
 from messages.msg import ConeEstimates, ConeEstimate, Points, Point
 from std_msgs.msg import Float32
 
 
 class LiveMap:
     def __init__(self):
-        """Initialize."""
-        rospy.init_node("example_node", anonymous=True)
+        rospy.init_node("live_map", anonymous=True)
         self.fig, self.ax = plt.subplots()
-        # Create thread lock to prevent multiaccess threading errors
+        # thread lock to prevent multiaccess threading errors (tkinter)
         self.lock = threading.Lock()
         self.cones = []
         self.trajectory = []
@@ -27,8 +25,6 @@ class LiveMap:
         self.sub_steering = rospy.Subscriber("/control/steering", Float32, self.steering_callback, queue_size=1)
         self.sub_steering_angle = rospy.Subscriber("/control/steering_angle", Float32, self.steering_angle_callback, queue_size=1)
         self.sub_target = rospy.Subscriber("/control/target", Point, self.target_callback, queue_size=1)
-
-        
 
     def cones_callback(self, msg):
         with self.lock:
@@ -84,7 +80,7 @@ class LiveMap:
             self.ax.set_xlabel("X (cm)")
             self.ax.set_ylabel("Z (cm)")
             plt.grid()
-            self.ax.legend()  # Show legend
+            self.ax.legend()
             return self.ax
 
     def plt_show(self):
