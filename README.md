@@ -15,7 +15,7 @@ it's based on **ROS** and it includes **perception**, **planning** and **control
 The stereo pipeline utilizes the epipolar constraints of the stereo camera to estimate the position of the cones,
 thus the results depend on the quality of stereo calibration. 
 In order to estimate the position of the cones relative to the vehicle, we first have to detect the cones in both frames.
-We can then extract and match features between corresponding cones, and finally use triangulation to estimate the location of each point
+We can then extract and match features between corresponding cone bounding boxes, and finally use triangulation to estimate the location of each point
 according to the vehicle world frame.
 
 Two approaches were explored:
@@ -23,9 +23,9 @@ Two approaches were explored:
    This is the simplest approach. \
    An **SSD-Mobilenet** network was trained on a custom dataset of ~50 images (augmented to ~100). \
    The model can achieve inference at ~10Hz for both frames on the Jetson Nano, with TensorRT acceleration.
-   Since the IMX219-83 stereo camera does not have hardware synchronization, the TimeSyncrhonizer filter is used.
+   Since the IMX219-83 stereo camera does not have hardware synchronization, the TimeSynchronizer filter is used.
    Although functional for test pursposes, due to the low amount of data and the low amount of variance within the data (the cones were placed at a max of ~2m from the camera due to space constraints),
-   the model does not generalize well. It's prediction confidence drops significantly as the distance of cones increases. A larger and more diverse dataset should be collected.
+   the model prediction confidence drops significantly as the distance of cones increases. A larger and more diverse dataset should be collected.
      
 ### 1B. Cone detection on left frame, and bounding box propagation to the right frame.
    Bounding box propagation can be achieved by:
