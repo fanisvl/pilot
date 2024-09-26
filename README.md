@@ -23,14 +23,14 @@ Two approaches were explored:
    This is the simplest approach. \
    An **SSD-Mobilenet** network was trained on a custom dataset of ~50 images (augmented to ~100). \
    The model can achieve inference at ~10Hz for both frames on the Jetson Nano, with TensorRT acceleration.
-   Since the IMX219-83 stereo camera does not have hardware synchronization, the TimeSynchronizer filter is used.
-   Although functional for test pursposes, due to the low amount of data and the low amount of variance within the data (the cones were placed at a max of ~2m from the camera due to space constraints),
-   the model prediction confidence drops significantly as the distance of cones increases. A larger and more diverse dataset should be collected.
-     
-### 1B. Cone detection on left frame, and bounding box propagation to the right frame.
+   Since the IMX219-83 stereo camera does not have hardware synchronization, the ROS TimeSynchronizer filter is used.
+   Although functional for test purposes, due to the low amount of data and the low amount of variance within the data (the cones were placed at a max of ~2m from the camera because of space constraints), the model prediction confidence drops significantly as the distance of cones increases. 
+   A larger and more diverse dataset should be collected.
+
+### 1B. Cone detection on left frame and bounding box propagation to the right frame.
    Bounding box propagation can be achieved by:
    
-   a. **Using a model like YOLOV8** _by ultralytics_, we can detect _pre-determined keypoints_[1] that define the cone.
+   a. **Using a model like YOLOV8** _by ultralytics_, we can detect _pre-determined keypoints_[*](https://arxiv.org/pdf/1902.02394) that define the cone.
         We can then utilize the epipolar constraints of our stereo camera to project the keypoints to the right
         frame, and create a new bounding box around them. While this approach was not chosen for the stereo pipeline,
         it was used in the [Monocular Pipeline](#monocular-pipeline).
@@ -64,7 +64,7 @@ This could be due to the fact that the Z-axis distances that we're trying to est
 or it could be due biased data in the stereo calibration process.
 
 A more diverse set of test examples should be considered in order to make any conclusions and thus a better ground truth data collection pipeline should be established. 
-Ground truth data can be obtained using LiDAR measurments, or a simulation.
+Ground truth data can be obtained using LiDAR measurments, or simulation.
 
 Less SIFT features could be correlated with less accurate estimations, as they are more prone to calibration inaccuracies and background features, 
 but again more examples would have to be gathered to make that conclusion. \
@@ -87,7 +87,7 @@ corresponds to the location of the cone relative to the camera.
 <img src="https://github.com/user-attachments/assets/09043185-6169-49ae-a02e-dc264210cad9" width="200"> \
 *AMZ Racing* [[1]](https://arxiv.org/abs/1905.05150) 
 
-To detect the required keypoints a YOLOv8-nano model was pre-trained on the [FSOCO dataset](https://www.fsoco-dataset.com/overview/) (~600 images)
+To detect the required keypoints a [YOLOv8-nano](https://docs.ultralytics.com/tasks/pose/) model was pre-trained on the [FSOCO dataset](https://www.fsoco-dataset.com/overview/) (~600 images)
 which represents WEMAS cones (used in FS-Germany), although it performed well on that type of cone it didn't generalize to mine, 
 so it was later fine tuned to my cones on ~50 images, augmented to 100. An inference example can be found for both cone types below.
 
@@ -96,49 +96,50 @@ so it was later fine tuned to my cones on ~50 images, augmented to 100. An infer
 <img src="https://github.com/user-attachments/assets/d65215d2-fb7a-4734-a89b-758eed3a1b35" width="400"> \
 We can observe that the left cone which has more compressed keypoints is estimated as further away,
 while the other cones with expanded keypoints are perceived as closer. \
-Robust and accurate keypoint regression is essential for this method to be reliable.
-
-
-Same model:
+Robust and accurate keypoint regression is essential for this method to be reliable.\
+Same model: \
 <img src="https://github.com/user-attachments/assets/478c2cf6-b3e1-4069-98db-338efe47217a" width="800"> \
 <img src="https://github.com/user-attachments/assets/c3d5f4ca-60cb-4667-8cf6-1081d43371d0" width="400"> 
 
 ### Simulation
-Object detection was also tested in the Gazebo simulator using this open source project by a FS team: [eufs_sim](https://gitlab.com/eufs/eufs_sim)
+The YOLOv8 object detection model was also tested in the Gazebo simulator using this open source project by a FS team: [eufs_sim](https://gitlab.com/eufs/eufs_sim)
 
 <img src="https://github.com/user-attachments/assets/52d30007-f2fc-43c8-b0a8-9cff093bbb33" width="600"> 
 
 
 ## Planning
 _Note: Planning and Control are still very much under development, and they're currently much simpler than perception.
-Emphasis was first given to perception simply because [Garbage in, garbage Out](https://en.wikipedia.org/wiki/Garbage_in,_garbage_out)_ 
+Emphasis was first given to perception simply because [Garbage in, Garbage out](https://en.wikipedia.org/wiki/Garbage_in,_garbage_out)_ 
 
 Having a set of cone estimates, Delaunay Triangulation is performed to find midpoints between the cone boundary pairs.
 Points that represent a linear trajectory between midpoints are generated
-and published for the Pure pusuit algorithm in the control module.
+and published for the Pure pusuit algorithm in the control module. \
 <img src="https://github.com/user-attachments/assets/00cb95b2-7a16-4a48-8b5b-f542802cc04d" width="420"> 
 <img src="https://github.com/user-attachments/assets/d12d0292-5f57-4056-98f1-09db5de493e4" width="400"> 
 
 Clustering was also tested to remove background cone detections and noisy estimates.
-<img src="https://github.com/user-attachments/assets/51ac47a8-9135-4e4a-8f61-1ab79e3b35d1" width="400">
+<img src="https://github.com/user-attachments/assets/51ac47a8-9135-4e4a-8f61-1ab79e3b35d1" width="600">
 
-_Utilizing SLAM (eg. GraphSLAM) would greatly improve the planning module. [ChalmersFS](https://arxiv.org/pdf/2210.10933)_
+_A next step could be to utilize the on-board IMU and additional sensors for GraphSLAM [(gtsam library)](https://gtsam.org/) which would greatly improve the planning module. [relevant paper: ChalmersFS](https://arxiv.org/pdf/2210.10933)_
 
 ## Control
 Given a set of trajectory points from planning, the control module uses the [Pure Pursuit algorithm](https://www.ri.cmu.edu/pub_files/pub3/coulter_r_craig_1992_1/coulter_r_craig_1992_1.pdf) to pick a target point, and calculate the steering angle required.
 Pure Pursuit has only one parameter L (Lookahead Distance), which defines the distance of our target waypoint.
-The target point is calculated by interpolating between trajectory points inside and outside the circle of radius L, as can be seen in the image below.
+The target point is calculated by interpolating between trajectory points inside and outside the circle of radius L, similar to the image below. \
 <img src="https://github.com/user-attachments/assets/1910d202-9851-481a-bcb6-d359627af8bf" width="400"> \
 [Penn Engineering](https://www.youtube.com/watch?v=x9s8J4ucgO0)
 
 
 If the lookahead distance is set too small, it can cause aggressive steering as the vehicle constantly adjusts to reach the nearby target point,
-and if the distance is too large, the path may be smoother, but it can result in trajectory tracking errors.
+and if the distance is too large, the path may be smoother, but it can result to tracking errors. \
+![image](https://github.com/user-attachments/assets/2001a1bb-56b5-4a5c-b68b-e6896045f5fc) \
+[R. Craig Coulter](https://www.ri.cmu.edu/pub_files/pub3/coulter_r_craig_1992_1/coulter_r_craig_1992_1.pdf)
+
 
 If our environment follows a set of constraints, we can get an idea for what our lookahead parameter should be set to.
 For example [FS-Germany](https://www.formulastudent.de/fileadmin/user_upload/all/2024/important_docs/FSG24_Competition_Handbook_v1.2.pdf) 
-has these conditions for skidpad with tight turns, a smaller lookahead will be required. \
-<img src="https://github.com/user-attachments/assets/a8cb05d3-bfdd-4f96-9d8b-65e9c83e2a77" width="200"> \
+has these conditions for skidpad with tight turns and a smaller lookahead will be required to avoid going off course. \
+<img src="https://github.com/user-attachments/assets/a8cb05d3-bfdd-4f96-9d8b-65e9c83e2a77" width="200"> 
 
 The steering angle is normalized to [-1,1] and translated to the corresponding
 PWM value to be sent to steering via the PCA9685 driver.
