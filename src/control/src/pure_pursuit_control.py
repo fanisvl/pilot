@@ -37,6 +37,7 @@ class Control:
         self.target_pub.publish(Point(x=target[0], y=target[1]))
 
     def pure_pursuit(self, trajectory_points, L=100):
+        target = None
         while L > 0:
             outerpoints = [point for point in trajectory_points if self.euclidean_distance_origin((point.x, point.y)) >= L]
             innerpoints = [point for point in trajectory_points if self.euclidean_distance_origin((point.x, point.y)) < L]
@@ -44,10 +45,10 @@ class Control:
             if outerpoints:
                 min_outer = min(outerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y)))
                 max_inner = max(innerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y))) if innerpoints else Point(0, 0, 0)
-                return self.interpolate_to_circle((0, 0), L, (max_inner.x, max_inner.y), (min_outer.x, min_outer.y))
+                target = self.interpolate_to_circle((0, 0), L, (max_inner.x, max_inner.y), (min_outer.x, min_outer.y))
             
             L *= 0.9
-        return None
+        return target
         
     def steering(self, target):
         """
@@ -86,7 +87,8 @@ class Control:
 
         discriminant = B**2 - 4 * A * C
         if discriminant < 0:
-            raise ValueError("The points do not form a line that intersects the circle.")
+            print("The points do not form a line that intersects the circle.")
+            return None
         t1 = (-B + np.sqrt(discriminant)) / (2 * A)
         t2 = (-B - np.sqrt(discriminant)) / (2 * A)
         t = max(t1, t2)
