@@ -7,10 +7,10 @@ class LowLevelController:
         self.pca = PCA9685(self.i2c)
         self.pca.frequency = 60
 
-        self.NEUTRAL_DUTY = 5900   # 1500 μs pulse (neutral) - 16bit
-        self.MAX_LEFT_DUTY = 6700
-        self.MAX_RIGHT_DUTY = 5100
-
+        # 1500 μs pulse (neutral) - 16bit is ~5900
+        self.NEUTRAL_DUTY = 5900
+        self.NEUTRAL_STEERING = 6000 
+        self.MAX_STEERING_OFFSET = 500
 
         # There's a certain threshold (6240)
         # that the car has to surpass during the initial push for forward movement.
@@ -23,25 +23,23 @@ class LowLevelController:
 
     def shutdown(self):
         print("shutting down")
+        self.set_throttle(0)
+        self.set_steering(0)
         self.pca.deinit()
 
     def set_steering(self, value):
         if value < -1 or value > 1:
             print("Value must be between -1 and 1.")
             return
-        if value == 0:
-            duty = self.NEUTRAL_DUTY
-        else:
-            duty = int(self.NEUTRAL_DUTY + (self.MAX_LEFT_DUTY - self.MAX_RIGHT_DUTY) * (value / 2))
+        duty = int(self.NEUTRAL_STEERING + self.MAX_STEERING_OFFSET * (-value)) # left has a greater duty cycle than right
         self.set_duty(1, duty)
 
     def set_throttle(self, value):
-
         if value < -1 or value > 1:
             print("Value must be between -1 and 1.")
             return
         if value == 0:
-            duty = self.NEUTRAL_DUTY
+            duty = self.THROTTLE_NEUTRAL
         elif value > 0:
             duty = int(self.THROTTLE_NEUTRAL + (self.INIT_FORWARD_DUTY - self.THROTTLE_NEUTRAL) * value)
         else:
@@ -65,8 +63,8 @@ class LowLevelController:
 
 def main():
     controller = LowLevelController()
-    # controller.calibrate_duty(0)
-    # controller.shutdown()
+    controller.calibrate_duty(1)
+    controller.shutdown()
 
 if __name__=='__main__':
     main()
