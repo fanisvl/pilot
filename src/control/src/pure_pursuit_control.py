@@ -29,8 +29,10 @@ class Control:
     def control(self, trajectory_msg):
         trajectory_points = trajectory_msg.points
         target = self.pure_pursuit(trajectory_points, self.PURE_PURSUIT_L)
-        steering = self.steering(target)
+        if target == None:
+            return
 
+        steering = self.steering(target)
         self.steering_pub.publish(Float32(data=steering))
         self.target_pub.publish(Point(x=target[0], y=target[1]))
 
@@ -45,9 +47,8 @@ class Control:
                 return self.interpolate_to_circle((0, 0), L, (max_inner.x, max_inner.y), (min_outer.x, min_outer.y))
             
             L *= 0.9
+        return None
         
-        raise ValueError("Pure Pursuit: No suitable points found")
-
     def steering(self, target):
         """
         INPUT: Target point
