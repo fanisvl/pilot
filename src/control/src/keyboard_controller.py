@@ -63,6 +63,7 @@ class KeyboardController:
     def update_controls(self):
         print(f"\nThrottle: {self.throttle:.2f}, Steering: {self.steering:.2f}")
         self.low_level_controller.set_steering(self.steering)
+        self.low_level_controller.set_throttle(self.throttle)
 
 def main():
     controller = LowLevelController()
