@@ -104,7 +104,7 @@ class Control:
                 if self.last_trajectory:
                     self.control(self.last_trajectory)
                 else:
-                    self.low_level_controller.set_throttle(0)
+                    self.set_throttle(0)
                     rospy.loginfo("No trajectory. Stopping vehicle.")
                 self.update_rate.rate.sleep()
     
@@ -115,9 +115,9 @@ class Control:
         try:
             steering_angle = self.pure_pursuit_controller.compute_steering_angle(trajectory_msg.points)
             if steering_angle is None:
-                self.low_level_controller.set_throttle(0)
+                self.set_throttle(0)
             else:
-                self.low_level_controller.set_steering(steering_angle)
+                self.set_steering(steering_angle)
                 # throttle is a low constant for now
             self.last_trajectory = None
         except Exception as e:
