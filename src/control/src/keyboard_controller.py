@@ -8,7 +8,7 @@ class KeyboardController:
         self.low_level_controller = low_level_controller
         self.steering = 0
         self.throttle = 0
-        self.steering_increment = 0.1
+        self.steering_increment = 0.25
         self.throttle_increment = 0.1
 
     def start(self):
@@ -19,15 +19,15 @@ class KeyboardController:
             while True:
                 key = self.get_keypress()
 
-                if key == 'i':  # Increase throttle
+                if key == 'i':
                     self.increase_throttle()
-                elif key == 'k':  # Decrease throttle
+                elif key == 'k':
                     self.decrease_throttle()
-                elif key == 'j':  # Steer left
+                elif key == 'j':
                     self.steer_left()
-                elif key == 'l':  # Steer right
+                elif key == 'l':
                     self.steer_right()
-                elif key == 'q':  # Quit
+                elif key == 'q':
                     break
         except KeyboardInterrupt:
             pass
