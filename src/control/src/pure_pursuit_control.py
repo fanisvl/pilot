@@ -38,14 +38,15 @@ class Control:
 
     def pure_pursuit(self, trajectory_points, L=100):
         target = None
-        while L > 0:
-            outerpoints = [point for point in trajectory_points if self.euclidean_distance_origin((point.x, point.y)) >= L]
-            innerpoints = [point for point in trajectory_points if self.euclidean_distance_origin((point.x, point.y)) < L]
-            
-            if outerpoints:
-                min_outer = min(outerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y)))
-                max_inner = max(innerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y))) if innerpoints else Point(0, 0, 0)
-                target = self.interpolate_to_circle((0, 0), L, (max_inner.x, max_inner.y), (min_outer.x, min_outer.y))
+        outerpoints = [point for point in trajectory_points 
+                        if self.euclidean_distance_origin((point.x, point.y)) >= L]
+        innerpoints = [point for point in trajectory_points 
+                        if self.euclidean_distance_origin((point.x, point.y)) < L]
+        
+        if innerpoints and outerpoints:
+            min_outer = min(outerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y)))
+            max_inner = max(innerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y))) if innerpoints else Point(0, 0, 0)
+            target = self.interpolate_to_circle((0, 0), L, (max_inner.x, max_inner.y), (min_outer.x, min_outer.y))
             
             L *= 0.9
         return target
