@@ -94,13 +94,12 @@ class Control:
         self.current_throttle = 0
         self.current_steering = 0
         self.last_trajectory = None
-        self.active = True
         self.update_rate = rospy.Rate(10) # hz
         
         rospy.loginfo("Control initialized.")
 
     def update(self):
-            while not rospy.is_shutdown() and self.active:
+            while not rospy.is_shutdown():
                 if self.last_trajectory:
                     self.control(self.last_trajectory)
                 else:
