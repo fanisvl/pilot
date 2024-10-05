@@ -1,5 +1,6 @@
 import board
 from adafruit_pca9685 import PCA9685
+import time
 
 class LowLevelController:
     def __init__(self):
@@ -19,6 +20,9 @@ class LowLevelController:
         self.THROTTLE_NEUTRAL  = 6100 # After throttle initialization, this is stops the vehicle
         self.INIT_FORWARD_DUTY = 6240 # min to start going forward
         self.INIT_REVERSE_DUTY = 5805 # min to start reversing
+
+        self.set_throttle(0)
+        self.set_steering(0)
         print("LowLevelController initialized.")
 
     def shutdown(self):
@@ -56,10 +60,18 @@ class LowLevelController:
 
     def calibrate_duty(self, channel):
         duty = self.NEUTRAL_DUTY
-        while duty != -1:
+        while duty != -1 and isinstance(duty, int):
             self.set_duty(channel, duty)
             duty = int(input("Enter duty value:"))
 
+    def soft_launch(self):
+        """
+        Sets the throttle to the minimum required to start moving, 
+        then to the minimum required to keep moving.
+        """
+        self.set_throttle(1)
+        time.sleep(0.25)
+        self.set_throttle(0.25)
 
 def main():
     controller = LowLevelController()
