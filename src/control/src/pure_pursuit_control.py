@@ -5,18 +5,12 @@ from messages.msg import Points, Point
 from std_msgs.msg import Float32
 import math
 import numpy as np
+from low_level_control import LowLevelController
 
-class Control:
+class PurePursuitController:
     def __init__(self):
-        rospy.init_node("control_node")
-        self.tajectory_sub =  rospy.Subscriber("/trajectory", Points, self.control)
-        self.steering_pub = rospy.Publisher("/control/steering", Float32, queue_size=1)
-        self.steering_angle_pub = rospy.Publisher("/control/steering_angle", Float32, queue_size=1)
-        self.target_pub = rospy.Publisher("/control/target", Point, queue_size=1)
-
         self.WHEELBASE_LEN = 15 #cm
         self.PURE_PURSUIT_L = 100 #cm
-
         self.TURN_THRESHOLDS = [
             (1.0,   0.00),    # TURN_MIN
             (1.14,  0.25),    # TURN_A
@@ -24,44 +18,36 @@ class Control:
             (1.42,  0.75),    # TURN_B
             (1.57,  1.00)     # TURN_MAX
         ]
-        rospy.loginfo("Control initialized.")
+    
+    def compute_steering_angle(self, trajectory_points):
+        try:
+            target = self.find_target(trajectory_points)
+            if target is None: return None
+            tx, ty = target
+            arc_curvature = math.degrees((2*tx) / (self.PURE_PURSUIT_L**2))
+            steering_angle = math.atan(arc_curvature * self.WHEELBASE_LEN)
+            return self.normalized_steering_angle(steering_angle)
+        except Exception as e:
+            rospy.logerr(f"Error in compute_steering_angle: {e}")
+            return None
 
-    def control(self, trajectory_msg):
-        trajectory_points = trajectory_msg.points
-        target = self.pure_pursuit(trajectory_points, self.PURE_PURSUIT_L)
-        if target == None:
-            return
-
-        steering = self.steering(target)
-        self.steering_pub.publish(Float32(data=steering))
-        self.target_pub.publish(Point(x=target[0], y=target[1]))
-
-    def pure_pursuit(self, trajectory_points, L=100):
-        target = None
+    def find_target(self, trajectory_points, L=100):
         outerpoints = [point for point in trajectory_points 
                         if self.euclidean_distance_origin((point.x, point.y)) >= L]
         innerpoints = [point for point in trajectory_points 
                         if self.euclidean_distance_origin((point.x, point.y)) < L]
+        if not innerpoints or not outerpoints:
+            return None
+        min_outer = min(outerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y)))
+        max_inner = max(innerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y))) if innerpoints else Point(0, 0, 0)
+        return self.interpolate_to_circle((0, 0), L, (max_inner.x, max_inner.y), (min_outer.x, min_outer.y))
         
-        if innerpoints and outerpoints:
-            min_outer = min(outerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y)))
-            max_inner = max(innerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y))) if innerpoints else Point(0, 0, 0)
-            target = self.interpolate_to_circle((0, 0), L, (max_inner.x, max_inner.y), (min_outer.x, min_outer.y))
-            
-            L *= 0.9
-        return target
-        
-    def steering(self, target):
-        """
+    def normalized_steering_angle(self, steering_angle):
+        """ 
         INPUT: Target point
         Steering angle output from pure pursuit ranges from (-1.57, 1.57) = (-pi/2, pi/2)
         OUTPUT: Steering angle normalized to (-1, 1)
         """
-        tx, ty = target
-        arc_curvature = math.degrees((2*tx) / (self.PURE_PURSUIT_L**2))
-        steering_angle = math.atan(arc_curvature * self.WHEELBASE_LEN)
-        self.steering_pub.publish(Float32(steering_angle))
-        
         turn_heading = 1 if steering_angle >= 0 else -1
         abs_steering_angle = abs(steering_angle)
         
@@ -70,7 +56,7 @@ class Control:
                 return turn_heading * value
         
         rospy.logwarn(f"Couldn't find valid turn threshold for steering angle: {abs_steering_angle}")
-        return 0
+        return None
 
     def euclidean_distance_origin(self, point):
         return math.sqrt(point[0]**2 + point[1]**2)
@@ -95,12 +81,81 @@ class Control:
         t = max(t1, t2)
         x_interp = x_inner + t * vx
         y_interp = y_inner + t * vy
-
         return (x_interp, y_interp)
 
+class Control:
+    def __init__(self):
+        rospy.init_node("control_node")
+        self.tajectory_sub =  rospy.Subscriber("/trajectory", Points, self.trajectory_callback)
+
+        self.low_level_controller = LowLevelController()
+        self.pure_pursuit_controller = PurePursuitController()
+
+        self.current_throttle = 0
+        self.current_steering = 0
+        self.last_trajectory = None
+        self.active = True
+        self.update_rate = rospy.Rate(10) # hz
+        
+        rospy.loginfo("Control initialized.")
+
+    def update(self):
+            while not rospy.is_shutdown() and self.active:
+                if self.last_trajectory:
+                    self.control(self.last_trajectory)
+                else:
+                    self.low_level_controller.set_throttle(0)
+                    rospy.loginfo("No trajectory. Stopping vehicle.")
+                self.update_rate.rate.sleep()
+    
+    def trajectory_callback(self, msg):
+        self.last_trajectory = msg
+
+    def control(self, trajectory_msg):
+        try:
+            steering_angle = self.pure_pursuit_controller.compute_steering_angle(trajectory_msg.points)
+            if steering_angle is None:
+                self.low_level_controller.set_throttle(0)
+            else:
+                self.low_level_controller.set_steering(steering_angle)
+                # throttle is a low constant for now
+            self.last_trajectory = None
+        except Exception as e:
+            rospy.logerr(f"Error in control loop: {e}")
+            self.stop_vehicle()
+    
+    def stop_vehicle(self):
+        rospy.loginfo("Stopping vehicle.")
+        self.set_throttle(0)
+        self.set_steering(0)
+    
+    def start_vehicle(self):
+        rospy.loginfo("Starting vehicle.")
+        self.low_level_controller.soft_launch()
+    
+    def set_throttle(self, value):
+        if value < -1 or value > 1:
+            print("Value must be between -1 and 1.")
+            return
+        self.current_throttle = value
+        self.low_level_controller.set_throttle(value)
+
+    def set_steering(self, value):
+        if value < -1 or value > 1:
+            print("Value must be between -1 and 1.")
+            return
+        if abs(value - self.current_steering) > 0.5:
+            rospy.logwarn(f"Large steering change detected: {self.current_steering} to {value}")
+        self.current_steering = value
+        self.low_level_controller.set_steering(value)
+
+
 if __name__ == "__main__":
-    node = Control()
-    rospy.spin()
+    try:
+        node = Control()
+        node.update()
+    except rospy.ROSInterruptException:
+        pass
 
 
 
