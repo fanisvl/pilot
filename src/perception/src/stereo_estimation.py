@@ -28,7 +28,7 @@ class ConeEstimation:
             input_blob="input_0",
             output_cvg="scores",
             output_bbox="boxes",
-            threshold=0.1
+            threshold=0.25
         )
         
         rospy.loginfo("Model loaded.")
@@ -78,6 +78,7 @@ class ConeEstimation:
         cone_estimates_msg = self.parallel_process_detections(detections_left, detections_right, right_detection_matches, 
                                                               left_frame, right_frame)
 
+        print(f"Cone Detected: {len(cone_estimates_msg.cones)}")
         self.cone_pub.publish(cone_estimates_msg)
 
         if self.debug:
