@@ -18,11 +18,11 @@ class Planner:
             
         path_points = []
         if len(estimates) < 2:
+            rospy.logwarn("Insufficient cone estimates for planning")
             return 
-        elif len(estimates) < 3:
-            #TODO: Check if they're actually a valid pair and not noise
-            p1, p2 = self.find_closest_cone_pair(estimates)
-            path_points.append(self.calculate_midpoint(p1, p2))
+        elif len(estimates) == 2:
+            #TODO: Check if they're actually a valid pair
+            path_points.append(self.calculate_midpoint(estimates[0], estimates[1]))
         else:
             points_array = np.array(estimates)
             triangulation = Delaunay(points_array)
@@ -32,10 +32,11 @@ class Planner:
                     v2 = points_array[triangle[(i + 1) % 3]]
                     midpoint = (v1 + v2) / 2
                     # Filter for horizontally aligned edges 
-                    #TODO: This will probably fail for more complicated cases
+                    #TODO: This will fail in more complicated cases
                     if abs(v1[0] - v2[0]) > abs(v1[1] - v2[1]):  # edge is more horizontal than vertical
                         path_points.append(midpoint)
         if not path_points:
+            rospy.logwarn("No path points ")
             return
         
         # sort based on distance from (0,0)
@@ -51,7 +52,6 @@ class Planner:
     
     def remove_duplicate_estimates(self, estimates, threshold=0.5):
         """
-        Sometimes cone estimation returns duplicate estimates.
         Remove cone estimates that are closer than a specified threshold in cm.
         """
         if len(estimates) == 0:
