@@ -74,7 +74,7 @@ class PurePursuitController:
 
         discriminant = B**2 - 4 * A * C
         if discriminant < 0:
-            print("The points do not form a line that intersects the circle.")
+            rospy.logwarn("The points do not form a line that intersects the circle.")
             return None
         t1 = (-B + np.sqrt(discriminant)) / (2 * A)
         t2 = (-B - np.sqrt(discriminant)) / (2 * A)
@@ -134,14 +134,14 @@ class Control:
     
     def set_throttle(self, value):
         if value < -1 or value > 1:
-            print("Value must be between -1 and 1.")
+            rospy.logwarn("Value must be between -1 and 1.")
             return
         self.current_throttle = value
         self.low_level_controller.set_throttle(value)
 
     def set_steering(self, value):
         if value < -1 or value > 1:
-            print("Value must be between -1 and 1.")
+            rospy.logwarn("Value must be between -1 and 1.")
             return
         if abs(value - self.current_steering) > 0.5:
             rospy.logwarn(f"Large steering change detected: {self.current_steering} to {value}")
