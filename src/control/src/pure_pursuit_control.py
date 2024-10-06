@@ -29,14 +29,14 @@ class PurePursuitController:
 
     def find_target(self, trajectory_points, L=100):
         outerpoints = [point for point in trajectory_points 
-                        if self.euclidean_distance_origin((point.x, point.y)) >= L]
+                        if self.euclidean_distance_origin(point) >= L]
         innerpoints = [point for point in trajectory_points 
-                        if self.euclidean_distance_origin((point.x, point.y)) < L]
+                        if self.euclidean_distance_origin(point) < L]
         if not innerpoints or not outerpoints:
             return None
-        min_outer = min(outerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y)))
-        max_inner = max(innerpoints, key=lambda p: self.euclidean_distance_origin((p.x, p.y)))
-        return self.interpolate_to_circle((0, 0), L, (max_inner.x, max_inner.y), (min_outer.x, min_outer.y))
+        min_outer = min(outerpoints, key=lambda p: self.euclidean_distance_origin(p))
+        max_inner = max(innerpoints, key=lambda p: self.euclidean_distance_origin(p))
+        return self.interpolate_to_circle((0, 0), L, max_inner, min_outer)
         
     def normalized_steering_angle(self, steering_angle):
         """
@@ -54,18 +54,16 @@ class PurePursuitController:
         return None
 
     def euclidean_distance_origin(self, point):
-        return math.sqrt(point[0]**2 + point[1]**2)
+        return math.sqrt(point.x**2 + point.y**2)
 
-    def interpolate_to_circle(self, center, radius, inner_point, outer_point):
+    def interpolate_to_circle(self, center, radius, inner, outer):
         x_c, y_c = center
-        x_inner, y_inner = inner_point
-        x_outer, y_outer = outer_point
-        vx = x_outer - x_inner
-        vy = y_outer - y_inner
+        vx = outer.x - inner.x
+        vy = outer.y - inner.y
 
         A = vx**2 + vy**2
-        B = 2 * (vx * (x_inner - x_c) + vy * (y_inner - y_c))
-        C = (x_inner - x_c)**2 + (y_inner - y_c)**2 - radius**2
+        B = 2 * (vx * (inner.x - x_c) + vy * (inner.y - y_c))
+        C = (inner.x - x_c)**2 + (inner.y - y_c)**2 - radius**2
 
         discriminant = B**2 - 4 * A * C
         if discriminant < 0:
@@ -74,6 +72,6 @@ class PurePursuitController:
         t1 = (-B + np.sqrt(discriminant)) / (2 * A)
         t2 = (-B - np.sqrt(discriminant)) / (2 * A)
         t = max(t1, t2)
-        x_interp = x_inner + t * vx
-        y_interp = y_inner + t * vy
+        x_interp = inner.x + t * vx
+        y_interp = inner.y + t * vy
         return (x_interp, y_interp)
