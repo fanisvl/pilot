@@ -43,10 +43,9 @@ class PurePursuitController:
         return self.interpolate_to_circle((0, 0), L, (max_inner.x, max_inner.y), (min_outer.x, min_outer.y))
         
     def normalized_steering_angle(self, steering_angle):
-        """ 
-        INPUT: Target point
-        Steering angle output from pure pursuit ranges from (-1.57, 1.57) = (-pi/2, pi/2)
-        OUTPUT: Steering angle normalized to (-1, 1)
+        """
+        Normalize steering angle from pure pursuit output (-1.57, +1.57) to (-1, 1)
+        based on self.TURN_THRESHOLDS
         """
         turn_heading = 1 if steering_angle >= 0 else -1
         abs_steering_angle = abs(steering_angle)
