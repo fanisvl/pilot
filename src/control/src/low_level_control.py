@@ -55,7 +55,6 @@ class LowLevelController:
         if duty < 5000 or duty > 6800:
             print(f"duty must be within 5000 and 6800")
             return
-        print(f"Setting channel {channel} to duty cycle: {duty}")
         self.pca.channels[channel].duty_cycle = duty
 
     def calibrate_duty(self, channel):
@@ -63,15 +62,6 @@ class LowLevelController:
         while duty != -1 and isinstance(duty, int):
             self.set_duty(channel, duty)
             duty = int(input("Enter duty value:"))
-
-    def soft_launch(self):
-        """
-        Sets the throttle to the minimum required to start moving, 
-        then to the minimum required to keep moving.
-        """
-        self.set_throttle(1)
-        time.sleep(0.25)
-        self.set_throttle(0.25)
 
 def main():
     controller = LowLevelController()
