@@ -40,7 +40,6 @@ class Control:
                 print(f"Current Throttle: {self.current_throttle}")
                 print(f"Current Steering: {self.current_steering}")
                 print()
-
                 self.update_rate.sleep()
     
     def trajectory_callback(self, msg):
@@ -75,7 +74,7 @@ class Control:
         """
         self.set_throttle(1)
         time.sleep(1)
-        self.set_throttle(0.75)
+        self.set_throttle(0.9)
 
     def shutdown(self):
         self.set_throttle(0)
@@ -103,6 +102,7 @@ class Control:
         if (rospy.Time.now() - self.last_trajectory_time).to_sec() > (timeout_ms*0.001):
             self.last_trajectory = None
             self.last_trajectory_time = None
+            self.stop_vehicle()
             rospy.loginfo(f"Trajectory timeout after {timeout_ms}ms.")
     
 if __name__ == "__main__":
@@ -111,4 +111,4 @@ if __name__ == "__main__":
         node = Control(low_level)
         node.update()
     except Exception as e:
-        low_level.shutdown()
+        rospy.signal_shutdown()
