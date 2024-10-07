@@ -26,9 +26,8 @@ class LowLevelController:
         print("LowLevelController initialized.")
 
     def shutdown(self):
-        print("shutting down")
+        print("Stopping and shutting down")
         self.set_throttle(0)
-        self.set_steering(0)
         self.pca.deinit()
 
     def set_steering(self, value):
