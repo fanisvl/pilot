@@ -2,6 +2,7 @@
 import rospy
 import math
 import numpy as np
+from std_msgs.msg import Float32
 
 class PurePursuitController:
     def __init__(self):
@@ -14,6 +15,9 @@ class PurePursuitController:
             (1.42,  0.75),    # TURN_B
             (1.57,  1.00)     # TURN_MAX
         ]
+
+        self.raw_steering_pub = rospy.Publisher('/control/raw_steering', Float32, queue_size=1)
+        self.norm_steering_pub = rospy.Publisher('/control/norm_steering', Float32, queue_size=1)
     
     def compute_steering_angle(self, trajectory_points):
         try:
@@ -22,7 +26,10 @@ class PurePursuitController:
             tx, ty = target
             arc_curvature = math.degrees((2*tx) / (self.PURE_PURSUIT_L**2))
             steering_angle = math.atan(arc_curvature * self.WHEELBASE_LEN)
-            return self.normalized_steering_angle(steering_angle)
+            normalized = self.normalized_steering_angle(steering_angle) # [-1,1]
+            self.raw_steering_pub.publish(Float32(data=steering_angle))
+            self.norm_steering_pub.publish(Float32(data=normalized))
+            return normalized
         except Exception as e:
             rospy.logerr(f"Error in compute_steering_angle: {e}")
             return None
