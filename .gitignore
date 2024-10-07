@@ -8,3 +8,4 @@
 .catkin_workspace
 *.sha256sum
 *.engine
+*.bag
