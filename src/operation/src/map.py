@@ -22,9 +22,8 @@ class LiveMap:
 
         self.sub_cones = rospy.Subscriber("/cone_estimates", ConeEstimates, self.cones_callback, queue_size=1)
         self.sub_trajectory = rospy.Subscriber("/trajectory", Points, self.trajectory_callback, queue_size=1)
-        self.sub_steering = rospy.Subscriber("/control/steering", Float32, self.steering_callback, queue_size=1)
-        self.sub_steering_angle = rospy.Subscriber("/control/steering_angle", Float32, self.steering_angle_callback, queue_size=1)
-        self.sub_target = rospy.Subscriber("/control/target", Point, self.target_callback, queue_size=1)
+        self.sub_steering = rospy.Subscriber("/control/norm_steering", Float32, self.steering_callback, queue_size=1)
+        self.sub_steering_angle = rospy.Subscriber("/control/raw_steering", Float32, self.steering_angle_callback, queue_size=1)
 
     def cones_callback(self, msg):
         with self.lock:
